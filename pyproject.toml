@@ -4,7 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evodev"
-version = "0.1.12"
+version = "0.1.13"
 description = "Automated Development Environment"
-authors = [{ name = "Twoje Imię" }]
+authors = [{ name = "Tom Sapletta" }]
 requires-python = ">=3.8"
+
+[project.urls]
+Documentation = "https://github.com/tom-sapletta-com/evodev/blob/main/README.md"
+Changelog = "https://github.com/tom-sapletta-com/evodev/blob/main/CHANGELOG.md"
+MonitoringSystemDocs = "https://github.com/tom-sapletta-com/evodev/blob/main/docs/monitoring-system.md"

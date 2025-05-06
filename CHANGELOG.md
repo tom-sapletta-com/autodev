@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.13] - 2025-05-06
+
+### Added
+- Changes in documentation.md
+- Changes in pyproject.toml
+- Changes in setup.py
+
+### Changed
+- Changes in monitor/monitor.db
+
 ## [0.1.12] - 2025-05-06
 
 ### Added
