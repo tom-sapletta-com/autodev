@@ -555,6 +555,20 @@ def api_docker_container_logs(container_id):
         logger.error(f"Error getting container logs: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
+@app.route('/api/docker/container-action/<container_id>', methods=['POST'])
+def api_docker_container_action(container_id):
+    """Wykonuje akcję na kontenerze Docker (start, stop, restart)"""
+    try:
+        action = request.json.get('action', '')
+        if not action or action not in ['start', 'stop', 'restart']:
+            return jsonify({"success": False, "error": "Invalid action. Must be one of: start, stop, restart"})
+        
+        result = docker_monitor.container_action(container_id, action)
+        return jsonify({"success": result["success"], "message": result["message"]})
+    except Exception as e:
+        logger.error(f"Error performing container action: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
 @app.route('/docker-web')
 def docker_web_view():
     """Strona z widokiem interfejsów webowych kontenerów Docker"""

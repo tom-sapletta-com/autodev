@@ -182,7 +182,7 @@
             // Funkcja ładująca dane
             function loadData() {
                 // Pobierz ostatnie requesty
-                fetch('/api/docker/requests/recent')
+                fetch('/api/docker/recent-requests')
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
@@ -196,7 +196,7 @@
                     });
                 
                 // Pobierz statystyki
-                fetch('/api/docker/requests/stats')
+                fetch('/api/docker/request-stats')
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {

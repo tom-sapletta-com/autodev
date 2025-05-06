@@ -270,13 +270,28 @@ def get_container_web_interfaces():
     """Get information about web interfaces for Docker containers"""
     try:
         client = docker.from_env()
-        containers = client.containers.list()
+        containers = client.containers.list(all=True)  # Pobierz wszystkie kontenery, nie tylko uruchomione
         
         web_interfaces = []
         
         for container in containers:
             try:
                 container_info = client.api.inspect_container(container.id)
+                
+                # Sprawdź, czy kontener należy do projektu EvoDev
+                labels = container_info['Config']['Labels']
+                is_evodev = False
+                
+                if labels and ('com.docker.compose.project' in labels):
+                    project = labels['com.docker.compose.project']
+                    if project.lower() == 'evodev':
+                        is_evodev = True
+                
+                # Jeśli nie jest częścią projektu EvoDev, pomijamy
+                if not is_evodev:
+                    continue
+                
+                # Pobierz informacje o portach
                 ports = container_info['NetworkSettings']['Ports']
                 
                 # Sprawdź, czy kontener ma otwarte porty webowe
@@ -296,7 +311,6 @@ def get_container_web_interfaces():
                                 })
                 
                 # Sprawdź, czy kontener ma etykietę wskazującą na interfejs webowy
-                labels = container_info['Config']['Labels']
                 is_web_app = False
                 app_type = None
                 
@@ -313,16 +327,20 @@ def get_container_web_interfaces():
                     is_web_app = True
                     app_type = app_type or re.sub(r'[^a-zA-Z0-9]', '', container_name)
                 
-                if web_ports or is_web_app:
-                    web_interfaces.append({
-                        'id': container.id,
-                        'name': container.name,
-                        'status': container.status,
-                        'web_ports': web_ports,
-                        'is_web_app': is_web_app,
-                        'app_type': app_type,
-                        'image': container.image.tags[0] if container.image.tags else str(container.image.id)
-                    })
+                # Dodaj wszystkie kontenery EvoDev, niezależnie od tego, czy mają interfejs webowy
+                web_interfaces.append({
+                    'id': container.id,
+                    'name': container.name,
+                    'status': container.status,
+                    'web_ports': web_ports,
+                    'is_web_app': is_web_app or len(web_ports) > 0,
+                    'app_type': app_type or (labels.get('com.docker.compose.service') if labels else None),
+                    'image': container.image.tags[0] if container.image.tags else str(container.image.id),
+                    'restart_count': container_info['RestartCount'] if 'RestartCount' in container_info else 0,
+                    'created': container_info['Created'],
+                    'started_at': container_info['State'].get('StartedAt', ''),
+                    'is_evodev': True
+                })
             
             except Exception as e:
                 logger.error(f"Error getting web interface info for container {container.name}: {str(e)}")
@@ -338,11 +356,75 @@ def get_container_logs(container_id, lines=100):
     try:
         client = docker.from_env()
         container = client.containers.get(container_id)
-        logs = container.logs(tail=lines).decode('utf-8')
-        return logs
+        
+        # Pobierz informacje o kontenerze
+        container_info = client.api.inspect_container(container_id)
+        container_state = container_info['State']
+        
+        # Sprawdź status kontenera
+        status = container_state.get('Status', 'unknown')
+        restarting = container_state.get('Restarting', False)
+        exit_code = container_state.get('ExitCode', 0)
+        
+        # Dodaj informacje o statusie do logów
+        status_info = f"Status: {status}\n"
+        if restarting:
+            status_info += "Kontener jest w trakcie restartu.\n"
+        if exit_code != 0:
+            status_info += f"Ostatni kod wyjścia: {exit_code}\n"
+        
+        # Pobierz logi
+        try:
+            logs = container.logs(tail=lines, timestamps=True).decode('utf-8')
+            
+            # Jeśli nie ma logów, dodaj informację
+            if not logs.strip():
+                logs = "Brak dostępnych logów dla tego kontenera."
+            
+            return status_info + logs
+        except Exception as log_error:
+            logger.error(f"Error getting container logs content: {str(log_error)}")
+            return status_info + f"Błąd podczas pobierania treści logów: {str(log_error)}"
+            
+    except docker.errors.NotFound:
+        return "Kontener nie został znaleziony. Mógł zostać usunięty."
     except Exception as e:
         logger.error(f"Error getting container logs: {str(e)}")
-        return f"Error retrieving logs: {str(e)}"
+        return f"Błąd podczas pobierania logów: {str(e)}"
+
+def container_action(container_id, action):
+    """Perform action on a Docker container (start, stop, restart)"""
+    try:
+        client = docker.from_env()
+        
+        try:
+            container = client.containers.get(container_id)
+        except docker.errors.NotFound:
+            return {"success": False, "message": "Kontener nie został znaleziony"}
+        
+        # Wykonaj akcję na kontenerze
+        if action == 'start':
+            if container.status == 'running':
+                return {"success": True, "message": "Kontener jest już uruchomiony"}
+            container.start()
+            return {"success": True, "message": f"Kontener {container.name} został uruchomiony"}
+        
+        elif action == 'stop':
+            if container.status != 'running':
+                return {"success": True, "message": "Kontener jest już zatrzymany"}
+            container.stop()
+            return {"success": True, "message": f"Kontener {container.name} został zatrzymany"}
+        
+        elif action == 'restart':
+            container.restart()
+            return {"success": True, "message": f"Kontener {container.name} został zrestartowany"}
+        
+        else:
+            return {"success": False, "message": f"Nieznana akcja: {action}"}
+    
+    except Exception as e:
+        logger.error(f"Error performing container action: {str(e)}")
+        return {"success": False, "message": f"Błąd podczas wykonywania akcji: {str(e)}"}
 
 # Start monitoring when module is imported
 if __name__ != "__main__":

@@ -246,6 +246,19 @@
                                 </div>
                             </div>
                         `;
+                    } else if (container.status === 'restarting') {
+                        webInterfaceHtml = `
+                            <div class="iframe-container">
+                                <div class="iframe-overlay bg-warning">
+                                    <i class="bi bi-arrow-repeat" style="font-size: 2rem;"></i>
+                                    <h4>Kontener jest restartowany</h4>
+                                    <p>Liczba restartów: ${container.restart_count || 0}</p>
+                                    <button class="btn btn-light btn-sm view-logs" data-container-id="${container.id}">
+                                        <i class="bi bi-journal-text"></i> Zobacz logi
+                                    </button>
+                                </div>
+                            </div>
+                        `;
                     } else if (container.status !== 'running') {
                         webInterfaceHtml = `
                             <div class="iframe-container">
@@ -266,10 +279,16 @@
                                     <i class="bi bi-question-circle-fill" style="font-size: 2rem;"></i>
                                     <h4>Brak wykrytego interfejsu webowego</h4>
                                     <p>Kontener nie ma wykrytych portów webowych</p>
+                                    <button class="btn btn-light btn-sm view-logs" data-container-id="${container.id}">
+                                        <i class="bi bi-journal-text"></i> Zobacz logi
+                                    </button>
                                 </div>
                             </div>
                         `;
                     }
+                    
+                    const serviceInfo = container.app_type ? 
+                        `<small class="text-muted d-block">Usługa: ${container.app_type}</small>` : '';
                     
                     card.innerHTML = `
                         <div class="card">
@@ -277,6 +296,7 @@
                                 <div>
                                     <h5 class="card-title mb-0">${container.name}</h5>
                                     <small class="text-muted">${shortenId(container.id)}</small>
+                                    ${serviceInfo}
                                 </div>
                                 <span class="badge ${statusBadge}">${container.status}</span>
                             </div>
@@ -291,6 +311,9 @@
                                             <i class="bi bi-box-arrow-up-right"></i> Otwórz
                                         </a>` : ''
                                     }
+                                    <button class="btn btn-outline-${container.status === 'running' ? 'danger' : 'success'} btn-sm restart-container" data-container-id="${container.id}" data-action="${container.status === 'running' ? 'stop' : 'start'}">
+                                        <i class="bi bi-${container.status === 'running' ? 'stop-circle' : 'play-circle'}"></i> ${container.status === 'running' ? 'Zatrzymaj' : 'Uruchom'}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -304,6 +327,15 @@
                     button.addEventListener('click', function() {
                         const containerId = this.getAttribute('data-container-id');
                         showContainerLogs(containerId);
+                    });
+                });
+                
+                // Dodaj event listeners dla przycisków akcji kontenerów
+                document.querySelectorAll('.restart-container').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const containerId = this.getAttribute('data-container-id');
+                        const action = this.getAttribute('data-action');
+                        performContainerAction(containerId, action);
                     });
                 });
                 
@@ -344,6 +376,79 @@
                         console.error('Błąd fetch:', error);
                         containerLogs.innerHTML = `<span class="text-danger">Wystąpił błąd podczas pobierania logów: ${error}</span>`;
                     });
+            }
+            
+            // Funkcja wykonująca akcję na kontenerze
+            function performContainerAction(containerId, action) {
+                const button = document.querySelector(`.restart-container[data-container-id="${containerId}"]`);
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Przetwarzanie...';
+                }
+                
+                fetch(`/api/docker/container-action/${containerId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: action })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Sukces', data.message, 'success');
+                        // Odśwież dane po krótkiej chwili
+                        setTimeout(loadWebInterfaces, 2000);
+                    } else {
+                        showToast('Błąd', data.error || data.message, 'danger');
+                        if (button) {
+                            button.disabled = false;
+                            const icon = action === 'start' ? 'play-circle' : 'stop-circle';
+                            const text = action === 'start' ? 'Uruchom' : 'Zatrzymaj';
+                            button.innerHTML = `<i class="bi bi-${icon}"></i> ${text}`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Błąd fetch:', error);
+                    showToast('Błąd', 'Wystąpił błąd podczas wykonywania akcji', 'danger');
+                    if (button) {
+                        button.disabled = false;
+                        const icon = action === 'start' ? 'play-circle' : 'stop-circle';
+                        const text = action === 'start' ? 'Uruchom' : 'Zatrzymaj';
+                        button.innerHTML = `<i class="bi bi-${icon}"></i> ${text}`;
+                    }
+                });
+            }
+            
+            // Funkcja pokazująca powiadomienie
+            function showToast(title, message, type) {
+                const toastContainer = document.createElement('div');
+                toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                toastContainer.style.zIndex = '1050';
+                
+                const toastHtml = `
+                    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header bg-${type} text-white">
+                            <strong class="me-auto">${title}</strong>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                toastContainer.innerHTML = toastHtml;
+                document.body.appendChild(toastContainer);
+                
+                const toastElement = toastContainer.querySelector('.toast');
+                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+                toast.show();
+                
+                toastElement.addEventListener('hidden.bs.toast', function() {
+                    document.body.removeChild(toastContainer);
+                });
             }
             
             // Funkcja włączająca/wyłączająca auto-odświeżanie

@@ -40,5 +40,7 @@
       "testable": true,
       "updateable": true
     }
-  ]
+  ],
+  "project_license": "Apache-2.0",
+  "license_url": "http://www.apache.org/licenses/LICENSE-2.0"
 }

@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.16] - 2025-05-06
+
+### Added
+- Changes in monitor/app.py
+- Changes in monitor/docker_monitor.py
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in pyproject.toml
+- Changes in registry/component_registry.json
+- Changes in setup.py
+
+### Changed
+- Changes in project_config.toml
+- Changes in monitor.db
+- Changes in monitor/monitor.db
+
+### Removed
+- Changes in monitor.db-journal
+
 ## [0.1.15] - 2025-05-06
 
 ### Added
