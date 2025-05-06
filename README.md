@@ -1,4 +1,6 @@
-# Udoskonalony system z redundantnymi rdzeniami i architekturą testową
+# EvoDev
+
+EvoDev to asystent ewolucyjny dla programistów. Uczy się nowych umiejętności (skilli) poprzez automatyczną instalację i konfigurację nowego oprogramowania (np. przez Docker Compose).
 
 ## Podsumowanie dokumentacji
 
@@ -15,7 +17,7 @@
 
 ```bash
 git clone <adres_repozytorium>
-cd autodev
+cd EvoDev
 ```
 
 ### 2. Instalacja zależności systemowych
