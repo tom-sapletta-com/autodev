@@ -11,7 +11,7 @@ import subprocess
 import signal
 import psutil
 import requests
-from flask import Flask, render_template, jsonify, request, g
+from flask import Flask, render_template, jsonify, request, send_from_directory, Response, redirect, url_for
 try:
     import email_utils
 except ImportError:
@@ -27,10 +27,10 @@ except ImportError:
 
 # Konfiguracja
 PORT = int(os.environ.get('MONITOR_PORT', 8080))
-DB_PATH = os.environ.get('MONITOR_DB', 'monitor.db')
+DB_PATH = os.environ.get('MONITOR_DB', os.path.join('/tmp', 'monitor.db'))
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
-LOG_FILE = os.environ.get('MONITOR_LOG_FILE', 'monitor.log')
-APP_LOG_FILE = os.environ.get('APP_LOG_FILE', 'monitor.log')
+LOG_FILE = os.environ.get('LOG_FILE', os.path.join(os.path.expanduser('~'), 'evodev_monitor.log'))
+APP_LOG_FILE = os.environ.get('APP_LOG_FILE', os.path.join(os.path.expanduser('~'), 'evodev_monitor.log'))
 OPENAI_LINK = os.environ.get('OPENAI_LINK', 'https://platform.openai.com/account/api-keys')
 ANTHROPIC_LINK = os.environ.get('ANTHROPIC_LINK', 'https://console.anthropic.com/account/keys')
 PARTNER_LINK = os.environ.get('PARTNER_LINK', 'https://platform.openai.com/account/api-keys')
@@ -101,6 +101,20 @@ def init_db():
             memory_percent REAL,
             disk_usage REAL,
             docker_status TEXT
+        )
+        ''')
+        
+        # Tabela dla zadań TODO
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            priority TEXT,
+            category TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
         ''')
         
@@ -806,6 +820,409 @@ def api_chat_message():
     except Exception as e:
         logger.error(f"Błąd podczas przetwarzania wiadomości czatu: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/chat/ollama', methods=['POST'])
+def api_chat_ollama():
+    """Obsługuje zapytania do API Ollama"""
+    try:
+        data = request.json
+        model = data.get('model', 'llama2')
+        message = data.get('message', '')
+        
+        if not message:
+            return jsonify({"success": False, "message": "Brak wiadomości"})
+        
+        # Sprawdź status Ollama
+        try:
+            ollama_status = requests.get("http://localhost:11434/api/tags")
+            if ollama_status.status_code != 200:
+                return jsonify({"success": False, "message": f"Błąd podczas sprawdzania statusu Ollama: kod {ollama_status.status_code}"})
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Błąd podczas sprawdzania statusu Ollama: {str(e)}"})
+        
+        # Wywołaj API Ollama
+        try:
+            url = "http://localhost:11434/api/generate"
+            payload = {
+                "model": model,
+                "prompt": f"Jesteś asystentem EvoDev, który pomaga użytkownikom w zadaniach programistycznych i administracyjnych. Oto zapytanie użytkownika: {message}",
+                "stream": False
+            }
+            
+            response = requests.post(url, json=payload)
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                return jsonify({"success": True, "response": response_data.get("response", "Brak odpowiedzi")})
+            else:
+                error_message = f"Błąd API Ollama (kod {response.status_code}): {response.text}"
+                logger.error(error_message)
+                return jsonify({"success": False, "message": error_message})
+        except Exception as e:
+            error_message = f"Błąd podczas komunikacji z Ollama: {str(e)}"
+            logger.error(error_message)
+            return jsonify({"success": False, "message": error_message})
+    except Exception as e:
+        error_message = f"Błąd podczas przetwarzania żądania: {str(e)}"
+        logger.error(error_message)
+        return jsonify({"success": False, "message": error_message})
+
+@app.route('/api/ollama/status', methods=['GET'])
+def api_ollama_status():
+    """Sprawdza status serwera Ollama i dostępne modele"""
+    try:
+        # Sprawdź status Ollama
+        try:
+            response = requests.get("http://localhost:11434/api/tags")
+            if response.status_code == 200:
+                models_data = response.json()
+                return jsonify({
+                    "success": True, 
+                    "status": "online",
+                    "models": models_data.get("models", [])
+                })
+            else:
+                return jsonify({
+                    "success": False, 
+                    "status": "error", 
+                    "message": f"Błąd podczas sprawdzania statusu Ollama: kod {response.status_code}"
+                })
+        except Exception as e:
+            return jsonify({
+                "success": False, 
+                "status": "offline", 
+                "message": f"Błąd podczas sprawdzania statusu Ollama: {str(e)}"
+            })
+    except Exception as e:
+        error_message = f"Błąd podczas przetwarzania żądania: {str(e)}"
+        logger.error(error_message)
+        return jsonify({"success": False, "message": error_message})
+
+@app.route('/api/web-projects/<project_name>/logs', methods=['GET'])
+def api_web_project_logs(project_name):
+    """Pobiera logi projektu webowego"""
+    try:
+        # Importuj moduł web_projects
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        try:
+            from evodev import web_projects
+        except ImportError:
+            logger.error("Nie można zaimportować modułu web_projects")
+            return jsonify({"success": False, "error": "Nie można zaimportować modułu web_projects"})
+        
+        try:
+            project = web_projects.get_project(project_name)
+            if not project:
+                # Jeśli projekt nie istnieje, zwróć przykładowe logi
+                logger.warning(f"Projekt {project_name} nie istnieje, zwracam przykładowe logi")
+                sample_logs = [
+                    f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Projekt {project_name} został utworzony",
+                    f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Typ projektu: static",
+                    f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Status projektu: stopped"
+                ]
+                return jsonify({"success": True, "logs": sample_logs, "note": "To są przykładowe logi. Projekt nie istnieje lub nie jest dostępny."})
+            
+            # Pobierz logi projektu
+            try:
+                logs = project.get_logs()
+                return jsonify({"success": True, "logs": logs})
+            except Exception as e:
+                # Jeśli nie udało się pobrać logów, zwróć przykładowe logi
+                logger.error(f"Błąd podczas pobierania logów projektu {project_name}: {str(e)}")
+                sample_logs = [
+                    f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Projekt {project_name} został utworzony",
+                    f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Typ projektu: {getattr(project, 'project_type', 'unknown')}",
+                    f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Status projektu: {getattr(project, 'status', 'unknown')}"
+                ]
+                return jsonify({"success": True, "logs": sample_logs, "note": "To są przykładowe logi. Rzeczywiste logi nie są dostępne."})
+        except Exception as e:
+            logger.error(f"Błąd podczas pobierania projektu {project_name}: {str(e)}")
+            sample_logs = [
+                f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Projekt {project_name} został utworzony",
+                f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Typ projektu: unknown",
+                f"[INFO] {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Status projektu: unknown"
+            ]
+            return jsonify({"success": True, "logs": sample_logs, "note": "To są przykładowe logi. Projekt nie jest dostępny."})
+    except Exception as e:
+        logger.error(f"Błąd podczas pobierania logów projektu: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/events/recent', methods=['GET'])
+def api_events_recent():
+    """Pobiera ostatnie zdarzenia z systemu"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        
+        # Połączenie z bazą danych
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Pobranie ostatnich zdarzeń
+        cursor.execute(
+            "SELECT id, timestamp, event_type, description FROM events ORDER BY timestamp DESC LIMIT ?",
+            (limit,)
+        )
+        events = [dict(row) for row in cursor.fetchall()]
+        
+        # Zamknięcie połączenia
+        conn.close()
+        
+        return jsonify({"success": True, "events": events})
+    except Exception as e:
+        logger.error(f"Błąd podczas pobierania zdarzeń: {str(e)}")
+        # Zwróć przykładowe dane, gdy wystąpi błąd
+        sample_events = [
+            {
+                "id": 1,
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "event_type": "system_start",
+                "description": "System EvoDev został uruchomiony"
+            },
+            {
+                "id": 2,
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "event_type": "container_start",
+                "description": "Kontener rocketchat został uruchomiony"
+            },
+            {
+                "id": 3,
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "event_type": "container_start",
+                "description": "Kontener mongo został uruchomiony"
+            }
+        ]
+        return jsonify({"success": True, "events": sample_events, "note": "Dane przykładowe - wystąpił błąd podczas pobierania rzeczywistych danych"})
+
+@app.route('/api/system/stats', methods=['GET'])
+def api_system_stats():
+    """Pobiera statystyki systemowe"""
+    try:
+        # Pobranie statystyk systemowych
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # Pobranie informacji o kontenerach Docker
+        try:
+            import docker
+            client = docker.from_env()
+            containers = client.containers.list(all=True)
+            container_stats = {
+                "total": len(containers),
+                "running": len([c for c in containers if c.status == 'running']),
+                "stopped": len([c for c in containers if c.status != 'running'])
+            }
+        except Exception as e:
+            logger.error(f"Błąd podczas pobierania statystyk kontenerów: {str(e)}")
+            container_stats = {
+                "total": 0,
+                "running": 0,
+                "stopped": 0,
+                "error": str(e)
+            }
+        
+        # Przygotowanie odpowiedzi
+        stats = {
+            "cpu": {
+                "percent": cpu_percent
+            },
+            "memory": {
+                "total": memory.total,
+                "available": memory.available,
+                "percent": memory.percent
+            },
+            "disk": {
+                "total": disk.total,
+                "used": disk.used,
+                "free": disk.free,
+                "percent": disk.percent
+            },
+            "containers": container_stats,
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return jsonify({"success": True, "stats": stats})
+    except Exception as e:
+        logger.error(f"Błąd podczas pobierania statystyk systemowych: {str(e)}")
+        # Zwróć przykładowe dane, gdy wystąpi błąd
+        sample_stats = {
+            "cpu": {
+                "percent": 25.0
+            },
+            "memory": {
+                "total": 8589934592,  # 8 GB
+                "available": 4294967296,  # 4 GB
+                "percent": 50.0
+            },
+            "disk": {
+                "total": 107374182400,  # 100 GB
+                "used": 32212254720,  # 30 GB
+                "free": 75161927680,  # 70 GB
+                "percent": 30.0
+            },
+            "containers": {
+                "total": 5,
+                "running": 3,
+                "stopped": 2
+            },
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        return jsonify({"success": True, "stats": sample_stats, "note": "Dane przykładowe - wystąpił błąd podczas pobierania rzeczywistych danych"})
+
+@app.route('/todos')
+def todos_view():
+    """Strona z listą zadań TODO"""
+    return render_template('todos.html')
+
+@app.route('/api/todos', methods=['GET'])
+def api_get_todos():
+    """Endpoint API zwracający listę zadań TODO"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Sprawdź czy tabela istnieje, jeśli nie - utwórz ją
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            priority TEXT,
+            category TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        conn.commit()
+        
+        # Pobierz wszystkie zadania
+        cursor.execute("SELECT * FROM todos ORDER BY priority, created_at DESC")
+        todos = [dict(row) for row in cursor.fetchall()]
+        
+        conn.close()
+        return jsonify({"success": True, "todos": todos})
+    except Exception as e:
+        logger.error(f"Błąd podczas pobierania zadań TODO: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/todos', methods=['POST'])
+def api_add_todo():
+    """Endpoint API dodający nowe zadanie TODO"""
+    try:
+        data = request.get_json()
+        if not data or 'title' not in data:
+            return jsonify({"success": False, "error": "Tytuł zadania jest wymagany"}), 400
+            
+        title = data.get('title')
+        description = data.get('description', '')
+        priority = data.get('priority', 'medium')
+        category = data.get('category', 'general')
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "INSERT INTO todos (title, description, priority, category) VALUES (?, ?, ?, ?)",
+            (title, description, priority, category)
+        )
+        
+        todo_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        log_event("INFO", "todos", f"Dodano nowe zadanie: {title}")
+        return jsonify({"success": True, "id": todo_id})
+    except Exception as e:
+        logger.error(f"Błąd podczas dodawania zadania TODO: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/todos/<int:todo_id>', methods=['PUT'])
+def api_update_todo(todo_id):
+    """Endpoint API aktualizujący zadanie TODO"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Brak danych do aktualizacji"}), 400
+            
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Sprawdź czy zadanie istnieje
+        cursor.execute("SELECT * FROM todos WHERE id = ?", (todo_id,))
+        todo = cursor.fetchone()
+        
+        if not todo:
+            conn.close()
+            return jsonify({"success": False, "error": f"Zadanie o ID {todo_id} nie istnieje"}), 404
+        
+        # Przygotuj dane do aktualizacji
+        updates = []
+        params = []
+        
+        if 'title' in data:
+            updates.append("title = ?")
+            params.append(data['title'])
+            
+        if 'description' in data:
+            updates.append("description = ?")
+            params.append(data['description'])
+            
+        if 'priority' in data:
+            updates.append("priority = ?")
+            params.append(data['priority'])
+            
+        if 'category' in data:
+            updates.append("category = ?")
+            params.append(data['category'])
+            
+        if 'status' in data:
+            updates.append("status = ?")
+            params.append(data['status'])
+        
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        
+        # Wykonaj aktualizację
+        query = f"UPDATE todos SET {', '.join(updates)} WHERE id = ?"
+        params.append(todo_id)
+        
+        cursor.execute(query, params)
+        conn.commit()
+        conn.close()
+        
+        log_event("INFO", "todos", f"Zaktualizowano zadanie o ID {todo_id}")
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Błąd podczas aktualizacji zadania TODO: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/todos/<int:todo_id>', methods=['DELETE'])
+def api_delete_todo(todo_id):
+    """Endpoint API usuwający zadanie TODO"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Sprawdź czy zadanie istnieje
+        cursor.execute("SELECT * FROM todos WHERE id = ?", (todo_id,))
+        todo = cursor.fetchone()
+        
+        if not todo:
+            conn.close()
+            return jsonify({"success": False, "error": f"Zadanie o ID {todo_id} nie istnieje"}), 404
+        
+        # Usuń zadanie
+        cursor.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
+        conn.commit()
+        conn.close()
+        
+        log_event("INFO", "todos", f"Usunięto zadanie o ID {todo_id}")
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Błąd podczas usuwania zadania TODO: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 def call_openai_api(message):
     """Wywołuje API OpenAI i zwraca odpowiedź"""

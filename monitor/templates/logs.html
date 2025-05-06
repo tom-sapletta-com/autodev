@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EvoDev - Przeglądarka logów</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% extends "base.html" %}
+
+{% block title %}EvoDev - Przeglądarka logów{% endblock %}
+
+{% block head_extra %}
     <style>
         .log-container {
             margin: 20px 0;
@@ -145,50 +143,37 @@
             background-color: #fff;
             font-weight: bold;
         }
-        
-        .back-link {
-            display: inline-block;
-            margin-bottom: 15px;
-            padding: 8px 15px;
-            background-color: #333;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        
-        .back-link:hover {
-            background-color: #555;
-        }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="container">
-        <header>
-            <h1>EvoDev Monitor - Przeglądarka logów</h1>
-            <p>System monitorowania logów aplikacji</p>
-        </header>
-        
-        <a href="/" class="back-link">← Powrót do dashboard</a>
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h2>Przeglądarka logów</h2>
+                <p>System monitorowania logów aplikacji</p>
+            </div>
+        </div>
         
         <section>
             <div class="file-selector">
-                <h2>Wybierz plik logu</h2>
-                <select id="log-file-select">
+                <h3>Wybierz plik logu</h3>
+                <select id="log-file-select" class="form-select">
                     <option value="">Ładowanie plików logów...</option>
                 </select>
             </div>
             
             <div class="refresh-control">
-                <button id="refresh-btn">Odśwież</button>
+                <button id="refresh-btn" class="btn btn-primary">Odśwież</button>
                 <div>
-                    <input type="checkbox" id="auto-refresh">
-                    <label for="auto-refresh">Automatyczne odświeżanie (5s)</label>
+                    <input type="checkbox" id="auto-refresh" class="form-check-input">
+                    <label for="auto-refresh" class="form-check-label">Automatyczne odświeżanie (5s)</label>
                 </div>
                 <div>
                     <label for="lines-count">Ilość linii:</label>
-                    <input type="number" id="lines-count" min="10" max="1000" value="100">
+                    <input type="number" id="lines-count" min="10" max="1000" value="100" class="form-control">
                 </div>
-                <button id="clear-btn">Wyczyść widok</button>
+                <button id="clear-btn" class="btn btn-secondary">Wyczyść widok</button>
             </div>
             
             <ul class="nav-tabs">
@@ -201,7 +186,7 @@
                     <div id="log-filename">Wybierz plik logu...</div>
                     <div class="log-controls">
                         <div id="log-stats" class="log-stats"></div>
-                        <button id="download-btn">Pobierz plik</button>
+                        <button id="download-btn" class="btn btn-sm btn-info">Pobierz plik</button>
                     </div>
                 </div>
                 <pre id="log-content" class="log-content">
@@ -210,7 +195,9 @@
             </div>
         </section>
     </div>
+{% endblock %}
 
+{% block scripts %}
     <script>
         // Zmienne globalne
         let currentLogFile = '';
@@ -224,199 +211,188 @@
         const logContent = document.getElementById('log-content');
         const logStats = document.getElementById('log-stats');
         const refreshBtn = document.getElementById('refresh-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const downloadBtn = document.getElementById('download-btn');
         const autoRefreshCheckbox = document.getElementById('auto-refresh');
         const linesCountInput = document.getElementById('lines-count');
-        const downloadBtn = document.getElementById('download-btn');
-        const clearBtn = document.getElementById('clear-btn');
         const navTabs = document.querySelectorAll('.nav-tabs li');
         
-        // Inicjalizacja przy załadowaniu strony
+        // Inicjalizacja
         document.addEventListener('DOMContentLoaded', () => {
-            // Pobierz dostępne pliki logów
-            fetchAvailableLogs();
+            loadLogFiles();
             
-            // Ustaw nasłuchiwanie zdarzeń
-            logFileSelect.addEventListener('change', onLogFileSelected);
-            refreshBtn.addEventListener('click', refreshLogs);
-            autoRefreshCheckbox.addEventListener('change', toggleAutoRefresh);
+            // Event listeners
+            logFileSelect.addEventListener('change', () => {
+                currentLogFile = logFileSelect.value;
+                if (currentLogFile) {
+                    loadLogContent();
+                }
+            });
+            
+            refreshBtn.addEventListener('click', loadLogContent);
+            clearBtn.addEventListener('click', clearLogContent);
             downloadBtn.addEventListener('click', downloadLogFile);
-            clearBtn.addEventListener('click', () => logContent.innerHTML = '');
             
-            // Obsługa zakładek
+            autoRefreshCheckbox.addEventListener('change', toggleAutoRefresh);
+            
             navTabs.forEach(tab => {
-                tab.addEventListener('click', (e) => {
+                tab.addEventListener('click', () => {
                     navTabs.forEach(t => t.classList.remove('active'));
-                    e.target.classList.add('active');
-                    currentView = e.target.dataset.view;
-                    if (lastLogData) renderLogs(lastLogData);
+                    tab.classList.add('active');
+                    currentView = tab.getAttribute('data-view');
+                    if (lastLogData) {
+                        displayLogContent(lastLogData);
+                    }
                 });
             });
         });
         
-        // Pobierz dostępne pliki logów
-        function fetchAvailableLogs() {
-            fetch('/api/available_logs')
+        // Funkcja ładująca listę plików logów
+        function loadLogFiles() {
+            fetch('/api/logs/files')
                 .then(response => response.json())
                 .then(data => {
                     logFileSelect.innerHTML = '';
-                    if (data.length === 0) {
+                    
+                    if (data.files.length === 0) {
                         const option = document.createElement('option');
                         option.value = '';
                         option.textContent = 'Brak dostępnych plików logów';
                         logFileSelect.appendChild(option);
-                    } else {
-                        data.forEach(log => {
-                            const option = document.createElement('option');
-                            option.value = log.path;
-                            option.textContent = `${log.filename} (${formatSize(log.size)}, mod: ${log.modified})`;
-                            logFileSelect.appendChild(option);
-                        });
-                        
-                        // Wybierz pierwszy plik automatycznie
-                        if (data.length > 0) {
-                            currentLogFile = data[0].path;
-                            logFileSelect.value = currentLogFile;
-                            onLogFileSelected();
-                        }
+                        return;
                     }
+                    
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'Wybierz plik logu...';
+                    logFileSelect.appendChild(defaultOption);
+                    
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file.path;
+                        option.textContent = `${file.name} (${formatFileSize(file.size)})`;
+                        logFileSelect.appendChild(option);
+                    });
                 })
                 .catch(error => {
-                    console.error('Błąd podczas pobierania listy logów:', error);
+                    console.error('Błąd podczas ładowania plików logów:', error);
                     logFileSelect.innerHTML = '<option value="">Błąd ładowania plików</option>';
                 });
         }
         
-        // Wywołane po wybraniu pliku logu
-        function onLogFileSelected() {
-            currentLogFile = logFileSelect.value;
-            if (currentLogFile) {
-                logFilename.textContent = logFileSelect.options[logFileSelect.selectedIndex].textContent;
-                refreshLogs();
-            } else {
-                logFilename.textContent = 'Nie wybrano pliku logu';
-                logContent.innerHTML = '<div class="log-entry">Wybierz plik logu aby zobaczyć zawartość</div>';
-                logStats.textContent = '';
-            }
-        }
-        
-        // Odśwież logi
-        function refreshLogs() {
+        // Funkcja ładująca zawartość wybranego pliku logu
+        function loadLogContent() {
             if (!currentLogFile) return;
             
-            const maxLines = parseInt(linesCountInput.value) || 100;
+            const lines = parseInt(linesCountInput.value) || 100;
             
-            fetch(`/api/logs?file=${encodeURIComponent(currentLogFile)}&lines=${maxLines}`)
+            logFilename.textContent = `Ładowanie: ${getFilenameFromPath(currentLogFile)}...`;
+            
+            fetch(`/api/logs/content?file=${encodeURIComponent(currentLogFile)}&lines=${lines}`)
                 .then(response => response.json())
                 .then(data => {
                     lastLogData = data;
-                    renderLogs(data);
+                    displayLogContent(data);
                 })
                 .catch(error => {
-                    console.error('Błąd podczas pobierania logów:', error);
-                    logContent.innerHTML = '<div class="log-entry error">Błąd podczas pobierania logów. Sprawdź konsolę.</div>';
+                    console.error('Błąd podczas ładowania zawartości logu:', error);
+                    logContent.innerHTML = '<div class="log-entry error">Błąd ładowania zawartości pliku logu.</div>';
+                    logFilename.textContent = getFilenameFromPath(currentLogFile);
                 });
         }
         
-        // Renderuj logi w zależności od wybranego widoku
-        function renderLogs(data) {
-            logStats.textContent = `Wyświetlono ${data.displayed_lines} z ${data.total_lines} linii`;
+        // Funkcja wyświetlająca zawartość logu
+        function displayLogContent(data) {
+            logFilename.textContent = getFilenameFromPath(currentLogFile);
+            logStats.textContent = `Rozmiar: ${formatFileSize(data.size)} | Linii: ${data.total_lines} | Wyświetlane: ${data.lines.length}`;
             
-            if (currentView === 'raw') {
-                // Widok surowy - po prostu pokaż linie tekstu
-                logContent.innerHTML = data.logs.map(log => {
-                    if (log.raw) {
-                        return `<div class="log-entry">${escapeHtml(log.raw)}</div>`;
-                    } else {
-                        return `<div class="log-entry">${escapeHtml(JSON.stringify(log))}</div>`;
-                    }
-                }).join('');
-            } else {
-                // Widok sformatowany - próba analizy logów
-                logContent.innerHTML = data.logs.map(log => {
-                    if (log.raw) {
-                        // Próba wykrycia poziomu logu
-                        let logClass = '';
-                        const rawLog = log.raw.toLowerCase();
-                        if (rawLog.includes('error') || rawLog.includes('błąd')) {
-                            logClass = 'error';
-                        } else if (rawLog.includes('warn')) {
-                            logClass = 'warning';
-                        } else if (rawLog.includes('info')) {
-                            logClass = 'info';
-                        } else if (rawLog.includes('debug')) {
-                            logClass = 'debug';
-                        }
-                        
-                        // Próba wyodrębnienia timestampa
-                        let formattedLog = log.raw;
-                        const timestampMatch = log.raw.match(/\d{4}[-/]\d{2}[-/]\d{2}[ T]\d{2}:\d{2}:\d{2}/);
-                        if (timestampMatch) {
-                            const timestamp = timestampMatch[0];
-                            formattedLog = log.raw.replace(timestamp, `<span class="timestamp">${timestamp}</span>`);
-                        }
-                        
-                        return `<div class="log-entry ${logClass}">${formattedLog}</div>`;
-                    } else {
-                        // Formatuj wpis JSON
-                        let logClass = '';
-                        if (log.level) {
-                            logClass = log.level.toLowerCase();
-                        }
-                        
-                        let formattedContent = '';
-                        if (log.timestamp && log.message) {
-                            formattedContent = `<span class="timestamp">${log.timestamp}</span> ${log.message}`;
-                        } else {
-                            formattedContent = escapeHtml(JSON.stringify(log, null, 2));
-                        }
-                        
-                        return `<div class="log-entry ${logClass}">${formattedContent}</div>`;
-                    }
-                }).join('');
+            if (data.lines.length === 0) {
+                logContent.innerHTML = '<div class="log-entry">Plik logu jest pusty.</div>';
+                return;
             }
             
-            // Przewiń na dół
+            if (currentView === 'raw') {
+                // Widok surowy
+                logContent.innerHTML = '';
+                const rawContent = document.createElement('div');
+                rawContent.className = 'log-entry';
+                rawContent.textContent = data.lines.join('\n');
+                logContent.appendChild(rawContent);
+            } else {
+                // Widok sformatowany
+                logContent.innerHTML = '';
+                
+                data.lines.forEach(line => {
+                    const logEntry = document.createElement('div');
+                    logEntry.className = 'log-entry';
+                    
+                    // Wykrywanie poziomu logu
+                    if (line.includes('ERROR') || line.includes('CRITICAL') || line.includes('FATAL')) {
+                        logEntry.classList.add('error');
+                    } else if (line.includes('WARNING')) {
+                        logEntry.classList.add('warning');
+                    } else if (line.includes('INFO')) {
+                        logEntry.classList.add('info');
+                    } else if (line.includes('DEBUG')) {
+                        logEntry.classList.add('debug');
+                    }
+                    
+                    // Wykrywanie timestampu
+                    const timestampMatch = line.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/);
+                    if (timestampMatch) {
+                        const timestamp = document.createElement('span');
+                        timestamp.className = 'timestamp';
+                        timestamp.textContent = timestampMatch[0];
+                        logEntry.appendChild(timestamp);
+                        
+                        const content = document.createElement('span');
+                        content.textContent = line.substring(timestampMatch[0].length);
+                        logEntry.appendChild(content);
+                    } else {
+                        logEntry.textContent = line;
+                    }
+                    
+                    logContent.appendChild(logEntry);
+                });
+            }
+            
+            // Przewijanie na dół
             logContent.scrollTop = logContent.scrollHeight;
         }
         
-        // Włącz/wyłącz automatyczne odświeżanie
+        // Funkcja czyszcząca widok logu
+        function clearLogContent() {
+            logContent.innerHTML = '<div class="log-entry">Widok wyczyszczony.</div>';
+        }
+        
+        // Funkcja pobierająca plik logu
+        function downloadLogFile() {
+            if (!currentLogFile) return;
+            
+            const filename = getFilenameFromPath(currentLogFile);
+            window.location.href = `/api/logs/download?file=${encodeURIComponent(currentLogFile)}`;
+        }
+        
+        // Funkcja włączająca/wyłączająca automatyczne odświeżanie
         function toggleAutoRefresh() {
             if (autoRefreshCheckbox.checked) {
-                autoRefreshInterval = setInterval(refreshLogs, 5000);
-            } else if (autoRefreshInterval) {
+                autoRefreshInterval = setInterval(loadLogContent, 5000);
+            } else {
                 clearInterval(autoRefreshInterval);
             }
         }
         
-        // Pobierz plik logu
-        function downloadLogFile() {
-            if (!currentLogFile) return;
-            
-            // Utwórz link do pobrania pliku
-            const filename = currentLogFile.split('/').pop();
-            const link = document.createElement('a');
-            link.href = `/api/logs?file=${encodeURIComponent(currentLogFile)}&lines=999999`;
-            link.download = filename;
-            link.target = '_blank';
-            link.click();
+        // Funkcja formatująca rozmiar pliku
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
         }
         
-        // Pomocnicze funkcje
-        function formatSize(bytes) {
-            if (bytes < 1024) {
-                return bytes + ' B';
-            } else if (bytes < 1024 * 1024) {
-                return (bytes / 1024).toFixed(1) + ' KB';
-            } else {
-                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-            }
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        // Funkcja pobierająca nazwę pliku ze ścieżki
+        function getFilenameFromPath(path) {
+            return path.split('/').pop();
         }
     </script>
-</body>
-</html>
+{% endblock %}

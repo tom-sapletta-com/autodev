@@ -1,192 +1,155 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EvoDev Monitor</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <meta http-equiv="refresh" content="30">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>EvoDev Monitor</h1>
-            <p>System monitorowania stanu aplikacji EvoDev</p>
-            <nav class="main-nav">
-                <ul>
-                    <li class="active"><a href="/" id="dashboard-link" data-view="dashboard">Dashboard</a></li>
-                    <li><a href="/docker" id="docker-link" data-view="docker">Kontenery Docker (siatka 4x4)</a></li>
-                    <li><a href="/docker-requests" id="docker-requests-link" data-view="docker-requests">Monitoring requestów</a></li>
-                    <li><a href="/docker-web" id="docker-web-link" data-view="docker-web">Interfejsy webowe</a></li>
-                    <li><a href="/web-projects" id="web-projects-link" data-view="web-projects">Projekty webowe</a></li>
-                    <li><a href="/logs" id="logs-link" data-view="logs">Przeglądarka logów</a></li>
-                    <li><a href="/chat" id="chat-link" data-view="chat">Chat AI</a></li>
-                </ul>
-            </nav>
-        </header>
+{% extends "base.html" %}
 
-        <section class="system-status">
-            <h2>Status Systemu</h2>
-            <div class="dashboard" id="system-stats">
-                <div class="stat-card">
-                    <h3>CPU</h3>
-                    <div class="stat-value" id="cpu-value">Ładowanie...</div>
-                    <div class="progress-bar">
-                        <div class="progress" id="cpu-bar" style="width: 0%"></div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <h3>Pamięć</h3>
-                    <div class="stat-value" id="memory-value">Ładowanie...</div>
-                    <div class="progress-bar">
-                        <div class="progress" id="memory-bar" style="width: 0%"></div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <h3>Dysk</h3>
-                    <div class="stat-value" id="disk-value">Ładowanie...</div>
-                    <div class="progress-bar">
-                        <div class="progress" id="disk-bar" style="width: 0%"></div>
-                    </div>
+{% block title %}EvoDev Monitor - Dashboard{% endblock %}
+
+{% block head_extra %}
+    <meta http-equiv="refresh" content="30">
+{% endblock %}
+
+{% block content %}
+    <section class="system-status">
+        <h2>Status Systemu</h2>
+        <div class="dashboard" id="system-stats">
+            <div class="stat-card">
+                <h3>CPU</h3>
+                <div class="stat-value" id="cpu-value">Ładowanie...</div>
+                <div class="progress-bar">
+                    <div class="progress" id="cpu-bar" style="width: 0%"></div>
                 </div>
             </div>
-        </section>
+            <div class="stat-card">
+                <h3>Pamięć</h3>
+                <div class="stat-value" id="memory-value">Ładowanie...</div>
+                <div class="progress-bar">
+                    <div class="progress" id="memory-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>Dysk</h3>
+                <div class="stat-value" id="disk-value">Ładowanie...</div>
+                <div class="progress-bar">
+                    <div class="progress" id="disk-bar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-        <section class="docker-status">
-            <h2>Status Docker <a href="/docker" class="view-all-btn">Widok siatki 4x4 →</a></h2>
-            <pre id="docker-status">Ładowanie statusu Docker...</pre>
-        </section>
+    <section class="docker-containers">
+        <h2>Kontenery Docker</h2>
+        <div class="container-grid" id="docker-containers">
+            <p>Ładowanie danych kontenerów...</p>
+        </div>
+    </section>
 
-        <section class="events">
-            <h2>Ostatnie Zdarzenia</h2>
-            <table id="events-table">
-                <thead>
-                    <tr>
-                        <th>Czas</th>
-                        <th>Typ</th>
-                        <th>Komponent</th>
-                        <th>Komunikat</th>
-                    </tr>
-                </thead>
-                <tbody id="events-body">
-                    <tr><td colspan="4">Ładowanie zdarzeń...</td></tr>
-                </tbody>
-            </table>
-        </section>
-    </div>
+    <section class="recent-events">
+        <h2>Ostatnie Zdarzenia</h2>
+        <div class="events-list" id="recent-events">
+            <p>Ładowanie ostatnich zdarzeń...</p>
+        </div>
+    </section>
+{% endblock %}
 
+{% block scripts %}
     <script>
-        // Funkcja odświeżająca dane
-        function fetchData() {
-            fetch('/api/status')
+        document.addEventListener('DOMContentLoaded', function() {
+            // Pobierz dane systemowe
+            fetch('/api/system/stats')
                 .then(response => response.json())
                 .then(data => {
-                    updateSystemStats(data.system);
-                    updateEvents(data.events);
-                })
-                .catch(error => console.error('Błąd pobierania danych:', error));
-        }
-
-        // Aktualizuj statystyki systemu
-        function updateSystemStats(system) {
-            if (!system || Object.keys(system).length === 0) {
-                console.error('Brak danych o systemie');
-                return;
-            }
-
-            // CPU
-            document.getElementById('cpu-value').textContent = system.cpu_percent.toFixed(1) + '%';
-            document.getElementById('cpu-bar').style.width = system.cpu_percent + '%';
-            
-            // Pamięć
-            document.getElementById('memory-value').textContent = system.memory_percent.toFixed(1) + '%';
-            document.getElementById('memory-bar').style.width = system.memory_percent + '%';
-            
-            // Dysk
-            document.getElementById('disk-value').textContent = system.disk_usage.toFixed(1) + '%';
-            document.getElementById('disk-bar').style.width = system.disk_usage + '%';
-            
-            // Status Docker
-            document.getElementById('docker-status').textContent = system.docker_status || 'Brak danych';
-        }
-
-        // Aktualizuj listę zdarzeń
-        function updateEvents(events) {
-            const tbody = document.getElementById('events-body');
-            tbody.innerHTML = '';
-            
-            if (!events || events.length === 0) {
-                const row = document.createElement('tr');
-                row.innerHTML = '<td colspan="4">Brak zdarzeń</td>';
-                tbody.appendChild(row);
-                return;
-            }
-            
-            events.forEach(event => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${new Date(event.timestamp).toLocaleString()}</td>
-                    <td>${event.event_type}</td>
-                    <td>${event.component}</td>
-                    <td>${event.message}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        // Obsługa nawigacji SPA
-        document.addEventListener('DOMContentLoaded', function() {
-            // Pobierz wszystkie linki nawigacyjne
-            const navLinks = document.querySelectorAll('.main-nav a');
-            
-            // Dodaj obsługę kliknięć na linki
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    // Usuń klasę active ze wszystkich linków
-                    navLinks.forEach(l => l.parentElement.classList.remove('active'));
-                    
-                    // Dodaj klasę active do klikniętego linku
-                    this.parentElement.classList.add('active');
-                    
-                    // Otwórz link w nowym oknie jeśli to Chat AI
-                    if (this.id === 'chat-link') {
-                        window.open('/chat', '_blank');
-                        return;
+                    if (data.success) {
+                        updateSystemStats(data.stats);
+                    } else {
+                        console.error('Błąd podczas pobierania statystyk systemu:', data.message);
                     }
-                    
-                    // Przekieruj do odpowiedniego widoku
-                    window.location.href = this.getAttribute('href');
+                })
+                .catch(error => {
+                    console.error('Błąd podczas pobierania statystyk systemu:', error);
                 });
-            });
-            
-            // Sprawdź czy Rocket.Chat jest dostępny
-            fetch('/api/docker')
+
+            // Pobierz dane kontenerów Docker
+            fetch('/api/docker/containers')
                 .then(response => response.json())
-                .then(containers => {
-                    const rocketChat = containers.find(c => c.name.includes('rocketchat') && c.status_type === 'running');
-                    if (rocketChat) {
-                        // Wyświetl powiadomienie o dostępności chatu
-                        const notification = document.createElement('div');
-                        notification.className = 'notification';
-                        notification.innerHTML = `
-                            <div class="alert alert-success">
-                                <strong>Chat jest dostępny!</strong> 
-                                <a href="http://localhost:3000" target="_blank" class="btn btn-sm btn-primary ms-3">Otwórz chat</a>
-                            </div>
-                        `;
-                        document.querySelector('.container').insertBefore(notification, document.querySelector('.system-status'));
+                .then(data => {
+                    if (data.success) {
+                        updateDockerContainers(data.containers);
+                    } else {
+                        console.error('Błąd podczas pobierania danych kontenerów Docker:', data.message);
                     }
                 })
-                .catch(error => console.error('Błąd sprawdzania statusu Rocket.Chat:', error));
+                .catch(error => {
+                    console.error('Błąd podczas pobierania danych kontenerów Docker:', error);
+                });
+
+            // Pobierz ostatnie zdarzenia
+            fetch('/api/events/recent')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateRecentEvents(data.events);
+                    } else {
+                        console.error('Błąd podczas pobierania ostatnich zdarzeń:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Błąd podczas pobierania ostatnich zdarzeń:', error);
+                });
         });
 
-        // Pobierz dane na początku
-        fetchData();
-        
-        // Odświeżaj dane co 30 sekund
-        setInterval(fetchData, 30000);
+        function updateSystemStats(stats) {
+            document.getElementById('cpu-value').textContent = `${stats.cpu_percent}%`;
+            document.getElementById('cpu-bar').style.width = `${stats.cpu_percent}%`;
+            
+            document.getElementById('memory-value').textContent = `${stats.memory_percent}% (${stats.memory_used} / ${stats.memory_total})`;
+            document.getElementById('memory-bar').style.width = `${stats.memory_percent}%`;
+            
+            document.getElementById('disk-value').textContent = `${stats.disk_percent}% (${stats.disk_used} / ${stats.disk_total})`;
+            document.getElementById('disk-bar').style.width = `${stats.disk_percent}%`;
+        }
+
+        function updateDockerContainers(containers) {
+            const containersGrid = document.getElementById('docker-containers');
+            containersGrid.innerHTML = '';
+
+            if (containers.length === 0) {
+                containersGrid.innerHTML = '<p>Brak uruchomionych kontenerów Docker.</p>';
+                return;
+            }
+
+            containers.forEach(container => {
+                const containerCard = document.createElement('div');
+                containerCard.className = `container-card ${container.status === 'running' ? 'running' : 'stopped'}`;
+                
+                containerCard.innerHTML = `
+                    <h3>${container.name}</h3>
+                    <p><strong>Status:</strong> ${container.status}</p>
+                    <p><strong>Image:</strong> ${container.image}</p>
+                    <p><strong>Utworzony:</strong> ${new Date(container.created * 1000).toLocaleString()}</p>
+                `;
+                
+                containersGrid.appendChild(containerCard);
+            });
+        }
+
+        function updateRecentEvents(events) {
+            const eventsList = document.getElementById('recent-events');
+            eventsList.innerHTML = '';
+
+            if (events.length === 0) {
+                eventsList.innerHTML = '<p>Brak ostatnich zdarzeń.</p>';
+                return;
+            }
+
+            events.forEach(event => {
+                const eventItem = document.createElement('div');
+                eventItem.className = `event-item ${event.level.toLowerCase()}`;
+                
+                eventItem.innerHTML = `
+                    <p class="event-time">${new Date(event.timestamp * 1000).toLocaleString()}</p>
+                    <p class="event-message">${event.message}</p>
+                `;
+                
+                eventsList.appendChild(eventItem);
+            });
+        }
     </script>
-</body>
-</html>
+{% endblock %}

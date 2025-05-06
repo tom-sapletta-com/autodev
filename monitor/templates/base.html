@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EvoDev Monitor{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EvoDev Monitor</h1>
+            <p>System monitorowania stanu aplikacji EvoDev</p>
+            <nav class="main-nav">
+                <ul>
+                    <li {% if request.path == '/' %}class="active"{% endif %}><a href="/" id="dashboard-link" data-view="dashboard">Dashboard</a></li>
+                    <li {% if request.path == '/docker' %}class="active"{% endif %}><a href="/docker" id="docker-link" data-view="docker">Kontenery Docker</a></li>
+                    <li {% if request.path == '/docker-requests' %}class="active"{% endif %}><a href="/docker-requests" id="docker-requests-link" data-view="docker-requests">Monitoring requestów</a></li>
+                    <li {% if request.path == '/docker-web' %}class="active"{% endif %}><a href="/docker-web" id="docker-web-link" data-view="docker-web">Interfejsy webowe</a></li>
+                    <li {% if request.path == '/web-projects' %}class="active"{% endif %}><a href="/web-projects" id="web-projects-link" data-view="web-projects">Projekty webowe</a></li>
+                    <li {% if request.path == '/logs' %}class="active"{% endif %}><a href="/logs" id="logs-link" data-view="logs">Przeglądarka logów</a></li>
+                    <li {% if request.path == '/todos' %}class="active"{% endif %}><a href="/todos" id="todos-link" data-view="todos">Lista zadań</a></li>
+                    <li {% if request.path == '/chat' %}class="active"{% endif %}><a href="/chat" id="chat-link" data-view="chat">Chat AI</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer>
+            <p>&copy; 2025 EvoDev Monitor</p>
+        </footer>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

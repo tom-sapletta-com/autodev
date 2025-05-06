@@ -1,9 +1,8 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EvoDev - Interfejsy Webowe Kontenerów</title>
+{% extends "base.html" %}
+
+{% block title %}EvoDev - Interfejsy Webowe Kontenerów{% endblock %}
+
+{% block head_extra %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
@@ -11,498 +10,409 @@
             background-color: #f8f9fa;
             padding-bottom: 30px;
         }
-        .header {
-            background-color: #343a40;
-            color: white;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 5px;
-        }
+
         .container-fluid {
             max-width: 95%;
         }
+
         .card {
             margin-bottom: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
         }
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-        }
+
         .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-weight: bold;
+            background-color: #f8f9fa;
         }
-        .badge-running {
-            background-color: #28a745;
-            color: white;
-        }
-        .badge-exited, .badge-stopped {
-            background-color: #dc3545;
-            color: white;
-        }
-        .badge-restarting {
-            background-color: #fd7e14;
-            color: white;
-        }
-        .badge-created, .badge-paused {
-            background-color: #6c757d;
-            color: white;
-        }
+
         .iframe-container {
-            width: 100%;
-            height: 300px;
-            overflow: hidden;
-            border-radius: 0 0 5px 5px;
             position: relative;
+            overflow: hidden;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
         }
+
         .iframe-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        .iframe-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 10;
+            border: 0;
         }
-        .iframe-overlay button {
-            margin-top: 15px;
+
+        .status-running {
+            color: green;
         }
-        .logs-container {
+
+        .status-stopped {
+            color: red;
+        }
+
+        .status-restarting {
+            color: orange;
+        }
+
+        .btn-group-sm {
+            margin-top: 10px;
+        }
+
+        .log-container {
             max-height: 300px;
             overflow-y: auto;
             background-color: #212529;
             color: #f8f9fa;
-            padding: 15px;
+            padding: 10px;
             border-radius: 5px;
             font-family: monospace;
             white-space: pre-wrap;
+            margin-top: 10px;
         }
-        .refresh-btn {
+
+        .log-timestamp {
+            color: #17a2b8;
+        }
+
+        .log-error {
+            color: #dc3545;
+        }
+
+        .log-warning {
+            color: #ffc107;
+        }
+
+        .toast-container {
             position: fixed;
-            bottom: 20px;
+            top: 20px;
             right: 20px;
+            z-index: 1050;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
             z-index: 100;
         }
-        .container-actions {
-            display: flex;
-            gap: 10px;
-        }
-        .container-image {
-            max-width: 100%;
-            height: 40px;
-            object-fit: contain;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 50px 0;
-        }
-        .empty-state i {
-            font-size: 4rem;
-            color: #6c757d;
-            margin-bottom: 20px;
-        }
     </style>
-</head>
-<body>
-    <div class="header">
-        <div class="container-fluid">
-            <h1>Interfejsy Webowe Kontenerów Docker</h1>
-            <p class="lead">Podgląd i zarządzanie aplikacjami webowymi w kontenerach Docker</p>
-        </div>
-    </div>
+{% endblock %}
 
-    <div class="container-fluid">
+{% block content %}
+    <div class="container-fluid mt-4">
         <div class="row mb-3">
-            <div class="col-md-6">
-                <a href="/" class="btn btn-secondary">← Powrót do dashboard</a>
-            </div>
-            <div class="col-md-6 text-end">
-                <div class="btn-group">
-                    <button class="btn btn-primary" id="refreshBtn">
-                        <i class="bi bi-arrow-clockwise"></i> Odśwież dane
-                    </button>
-                    <button class="btn btn-outline-primary" id="autoRefreshBtn">
-                        Auto-odświeżanie: <span id="autoRefreshStatus">Wyłączone</span>
-                    </button>
-                </div>
+            <div class="col-12">
+                <h2>Interfejsy Webowe Kontenerów Docker</h2>
+                <p>Poniżej znajdują się kontenery Docker z interfejsami webowymi oraz ich status.</p>
             </div>
         </div>
 
-        <div id="webInterfacesContainer" class="row">
-            <!-- Tutaj będą dynamicznie wstawiane karty kontenerów -->
-            <div class="col-12 empty-state">
-                <i class="bi bi-hourglass"></i>
-                <h3>Ładowanie kontenerów...</h3>
-                <p>Proszę czekać, trwa pobieranie informacji o kontenerach Docker.</p>
-            </div>
-        </div>
-    </div>
-
-    <button class="btn btn-primary btn-lg rounded-circle refresh-btn" id="quickRefreshBtn">
-        <i class="bi bi-arrow-clockwise"></i>
-    </button>
-
-    <!-- Modal do wyświetlania logów -->
-    <div class="modal fade" id="logsModal" tabindex="-1" aria-labelledby="logsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="logsModalLabel">Logi kontenera</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="logs-container" id="containerLogs">
-                        Ładowanie logów...
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+        <div class="row" id="containers-row">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    Ładowanie danych kontenerów...
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Toast container for notifications -->
+    <div class="toast-container"></div>
+{% endblock %}
+
+{% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Elementy DOM
-            const webInterfacesContainer = document.getElementById('webInterfacesContainer');
-            const refreshBtn = document.getElementById('refreshBtn');
-            const quickRefreshBtn = document.getElementById('quickRefreshBtn');
-            const autoRefreshBtn = document.getElementById('autoRefreshBtn');
-            const autoRefreshStatus = document.getElementById('autoRefreshStatus');
-            const logsModal = new bootstrap.Modal(document.getElementById('logsModal'));
-            const containerLogs = document.getElementById('containerLogs');
+            loadContainersData();
             
-            // Zmienne
-            let isAutoRefreshing = false;
-            let autoRefreshInterval;
-            
-            // Funkcja ładująca dane o interfejsach webowych
-            function loadWebInterfaces() {
-                fetch('/api/docker/web-interfaces')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            updateWebInterfacesUI(data.web_interfaces);
-                        } else {
-                            console.error('Błąd podczas pobierania danych:', data.error);
-                            showError('Nie udało się pobrać informacji o kontenerach Docker.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Błąd fetch:', error);
-                        showError('Wystąpił błąd podczas komunikacji z serwerem.');
-                    });
-            }
-            
-            // Funkcja aktualizująca UI z interfejsami webowymi
-            function updateWebInterfacesUI(webInterfaces) {
-                webInterfacesContainer.innerHTML = '';
-                
-                if (webInterfaces.length === 0) {
-                    webInterfacesContainer.innerHTML = `
-                        <div class="col-12 empty-state">
-                            <i class="bi bi-cloud-slash"></i>
-                            <h3>Brak aktywnych interfejsów webowych</h3>
-                            <p>Nie znaleziono kontenerów Docker z interfejsami webowymi.</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                webInterfaces.forEach(container => {
-                    const card = document.createElement('div');
-                    card.className = 'col-md-6 col-lg-4 mb-4';
-                    
-                    const statusBadge = getStatusBadge(container.status);
-                    const hasWebInterface = container.web_ports && container.web_ports.length > 0;
-                    
-                    let webInterfaceHtml = '';
-                    if (hasWebInterface && container.status === 'running') {
-                        const primaryPort = container.web_ports[0];
-                        webInterfaceHtml = `
-                            <div class="iframe-container">
-                                <iframe src="${primaryPort.url}" title="${container.name} interface" sandbox="allow-same-origin allow-scripts"></iframe>
-                                <div class="iframe-overlay">
-                                    <h4>${container.name}</h4>
-                                    <p>Interfejs webowy dostępny na porcie ${primaryPort.host_port}</p>
-                                    <a href="${primaryPort.url}" target="_blank" class="btn btn-primary">
-                                        <i class="bi bi-box-arrow-up-right"></i> Otwórz w nowym oknie
-                                    </a>
-                                </div>
-                            </div>
-                        `;
-                    } else if (container.status === 'restarting') {
-                        webInterfaceHtml = `
-                            <div class="iframe-container">
-                                <div class="iframe-overlay bg-warning">
-                                    <i class="bi bi-arrow-repeat" style="font-size: 2rem;"></i>
-                                    <h4>Kontener jest restartowany</h4>
-                                    <p>Liczba restartów: ${container.restart_count || 0}</p>
-                                    <button class="btn btn-light btn-sm view-logs" data-container-id="${container.id}">
-                                        <i class="bi bi-journal-text"></i> Zobacz logi
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    } else if (container.status !== 'running') {
-                        webInterfaceHtml = `
-                            <div class="iframe-container">
-                                <div class="iframe-overlay bg-danger">
-                                    <i class="bi bi-exclamation-triangle-fill" style="font-size: 2rem;"></i>
-                                    <h4>Kontener nie jest uruchomiony</h4>
-                                    <p>Status: ${container.status}</p>
-                                    <button class="btn btn-light btn-sm view-logs" data-container-id="${container.id}">
-                                        <i class="bi bi-journal-text"></i> Zobacz logi
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        webInterfaceHtml = `
-                            <div class="iframe-container">
-                                <div class="iframe-overlay bg-secondary">
-                                    <i class="bi bi-question-circle-fill" style="font-size: 2rem;"></i>
-                                    <h4>Brak wykrytego interfejsu webowego</h4>
-                                    <p>Kontener nie ma wykrytych portów webowych</p>
-                                    <button class="btn btn-light btn-sm view-logs" data-container-id="${container.id}">
-                                        <i class="bi bi-journal-text"></i> Zobacz logi
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    const serviceInfo = container.app_type ? 
-                        `<small class="text-muted d-block">Usługa: ${container.app_type}</small>` : '';
-                    
-                    card.innerHTML = `
-                        <div class="card">
-                            <div class="card-header">
-                                <div>
-                                    <h5 class="card-title mb-0">${container.name}</h5>
-                                    <small class="text-muted">${shortenId(container.id)}</small>
-                                    ${serviceInfo}
-                                </div>
-                                <span class="badge ${statusBadge}">${container.status}</span>
-                            </div>
-                            ${webInterfaceHtml}
-                            <div class="card-footer">
-                                <div class="container-actions">
-                                    <button class="btn btn-outline-secondary btn-sm view-logs" data-container-id="${container.id}">
-                                        <i class="bi bi-journal-text"></i> Logi
-                                    </button>
-                                    ${hasWebInterface ? 
-                                        `<a href="${container.web_ports[0].url}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                            <i class="bi bi-box-arrow-up-right"></i> Otwórz
-                                        </a>` : ''
-                                    }
-                                    <button class="btn btn-outline-${container.status === 'running' ? 'danger' : 'success'} btn-sm restart-container" data-container-id="${container.id}" data-action="${container.status === 'running' ? 'stop' : 'start'}">
-                                        <i class="bi bi-${container.status === 'running' ? 'stop-circle' : 'play-circle'}"></i> ${container.status === 'running' ? 'Zatrzymaj' : 'Uruchom'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    webInterfacesContainer.appendChild(card);
-                });
-                
-                // Dodaj event listeners dla przycisków logów
-                document.querySelectorAll('.view-logs').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const containerId = this.getAttribute('data-container-id');
-                        showContainerLogs(containerId);
-                    });
-                });
-                
-                // Dodaj event listeners dla przycisków akcji kontenerów
-                document.querySelectorAll('.restart-container').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const containerId = this.getAttribute('data-container-id');
-                        const action = this.getAttribute('data-action');
-                        performContainerAction(containerId, action);
-                    });
-                });
-                
-                // Dodaj event listeners dla iframe overlays
-                document.querySelectorAll('.iframe-overlay').forEach(overlay => {
-                    overlay.addEventListener('click', function(e) {
-                        // Zatrzymaj propagację tylko jeśli kliknięcie nie było na przycisku
-                        if (!e.target.closest('a') && !e.target.closest('button')) {
-                            const iframe = this.parentElement.querySelector('iframe');
-                            if (iframe) {
-                                this.style.display = 'none';
-                            }
-                        }
-                    });
-                });
-            }
-            
-            // Funkcja pokazująca logi kontenera
-            function showContainerLogs(containerId) {
-                containerLogs.innerHTML = 'Ładowanie logów...';
-                document.getElementById('logsModalLabel').textContent = 'Ładowanie logów kontenera...';
-                logsModal.show();
-                
-                fetch(`/api/docker/container-logs/${containerId}?lines=200`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            containerLogs.textContent = data.logs || 'Brak dostępnych logów';
-                            // Aktualizuj tytuł modalu z nazwą kontenera
-                            const containerCard = document.querySelector(`[data-container-id="${containerId}"]`).closest('.card');
-                            const containerName = containerCard.querySelector('.card-title').textContent;
-                            document.getElementById('logsModalLabel').textContent = `Logi kontenera: ${containerName}`;
-                        } else {
-                            containerLogs.innerHTML = `<span class="text-danger">Błąd: ${data.error}</span>`;
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Błąd fetch:', error);
-                        containerLogs.innerHTML = `<span class="text-danger">Wystąpił błąd podczas pobierania logów: ${error}</span>`;
-                    });
-            }
-            
-            // Funkcja wykonująca akcję na kontenerze
-            function performContainerAction(containerId, action) {
-                const button = document.querySelector(`.restart-container[data-container-id="${containerId}"]`);
-                if (button) {
-                    button.disabled = true;
-                    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Przetwarzanie...';
-                }
-                
-                fetch(`/api/docker/container-action/${containerId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ action: action })
-                })
+            // Refresh data every 30 seconds
+            setInterval(loadContainersData, 30000);
+        });
+
+        function loadContainersData() {
+            fetch('/api/docker/web-interfaces')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showToast('Sukces', data.message, 'success');
-                        // Odśwież dane po krótkiej chwili
-                        setTimeout(loadWebInterfaces, 2000);
+                        displayContainers(data.containers || []);
                     } else {
-                        showToast('Błąd', data.error || data.message, 'danger');
-                        if (button) {
-                            button.disabled = false;
-                            const icon = action === 'start' ? 'play-circle' : 'stop-circle';
-                            const text = action === 'start' ? 'Uruchom' : 'Zatrzymaj';
-                            button.innerHTML = `<i class="bi bi-${icon}"></i> ${text}`;
-                        }
+                        showError(data.message);
                     }
                 })
                 .catch(error => {
-                    console.error('Błąd fetch:', error);
-                    showToast('Błąd', 'Wystąpił błąd podczas wykonywania akcji', 'danger');
-                    if (button) {
-                        button.disabled = false;
-                        const icon = action === 'start' ? 'play-circle' : 'stop-circle';
-                        const text = action === 'start' ? 'Uruchom' : 'Zatrzymaj';
-                        button.innerHTML = `<i class="bi bi-${icon}"></i> ${text}`;
-                    }
+                    showError('Błąd podczas pobierania danych kontenerów: ' + error);
                 });
-            }
-            
-            // Funkcja pokazująca powiadomienie
-            function showToast(title, message, type) {
-                const toastContainer = document.createElement('div');
-                toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-                toastContainer.style.zIndex = '1050';
-                
-                const toastHtml = `
-                    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                        <div class="toast-header bg-${type} text-white">
-                            <strong class="me-auto">${title}</strong>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                        </div>
-                        <div class="toast-body">
-                            ${message}
+        }
+
+        function displayContainers(containers) {
+            const containersRow = document.getElementById('containers-row');
+            containersRow.innerHTML = '';
+
+            if (!containers || containers.length === 0) {
+                containersRow.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            Nie znaleziono kontenerów z interfejsami webowymi.
                         </div>
                     </div>
                 `;
-                
-                toastContainer.innerHTML = toastHtml;
-                document.body.appendChild(toastContainer);
-                
-                const toastElement = toastContainer.querySelector('.toast');
-                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
-                toast.show();
-                
-                toastElement.addEventListener('hidden.bs.toast', function() {
-                    document.body.removeChild(toastContainer);
-                });
+                return;
             }
-            
-            // Funkcja włączająca/wyłączająca auto-odświeżanie
-            function toggleAutoRefresh() {
-                if (isAutoRefreshing) {
-                    clearInterval(autoRefreshInterval);
-                    autoRefreshStatus.textContent = 'Wyłączone';
-                    isAutoRefreshing = false;
+
+            containers.forEach(container => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4';
+
+                let statusClass = '';
+                let statusIcon = '';
+                
+                if (container.status === 'running') {
+                    statusClass = 'status-running';
+                    statusIcon = 'bi-play-circle-fill';
+                } else if (container.status === 'restarting') {
+                    statusClass = 'status-restarting';
+                    statusIcon = 'bi-arrow-repeat';
                 } else {
-                    loadWebInterfaces();
-                    autoRefreshInterval = setInterval(loadWebInterfaces, 5000);
-                    autoRefreshStatus.textContent = 'Włączone (5s)';
-                    isAutoRefreshing = true;
+                    statusClass = 'status-stopped';
+                    statusIcon = 'bi-stop-circle-fill';
                 }
-            }
-            
-            // Funkcja pokazująca błąd
-            function showError(message) {
-                webInterfacesContainer.innerHTML = `
-                    <div class="col-12 empty-state">
-                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-                        <h3>Wystąpił błąd</h3>
-                        <p>${message}</p>
-                        <button class="btn btn-primary mt-3" onclick="loadWebInterfaces()">
-                            <i class="bi bi-arrow-clockwise"></i> Spróbuj ponownie
+
+                let cardContent = `
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>${container.name}</span>
+                            <span class="${statusClass}"><i class="bi ${statusIcon}"></i> ${container.status}</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Image:</strong> ${container.image}</p>
+                            <p><strong>ID:</strong> ${container.id.substring(0, 12)}</p>
+                `;
+
+                if (container.web_interfaces && container.web_interfaces.length > 0) {
+                    cardContent += `<p><strong>Interfejsy webowe:</strong></p>`;
+                    container.web_interfaces.forEach(interface => {
+                        cardContent += `
+                            <div class="mb-2">
+                                <a href="${interface.url}" target="_blank" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-box-arrow-up-right"></i> Otwórz ${interface.port}
+                                </a>
+                                <span class="ms-2">${interface.url}</span>
+                            </div>
+                        `;
+                    });
+
+                    if (container.status === 'running') {
+                        cardContent += `
+                            <div class="iframe-container mt-3">
+                                <iframe src="${container.web_interfaces[0].url}" title="${container.name}" allowfullscreen></iframe>
+                            </div>
+                        `;
+                    }
+                } else {
+                    cardContent += `<p>Brak wykrytych interfejsów webowych.</p>`;
+                }
+
+                // Add action buttons
+                cardContent += `
+                    <div class="btn-group btn-group-sm mt-3" role="group">
+                `;
+
+                if (container.status !== 'running') {
+                    cardContent += `
+                        <button type="button" class="btn btn-success" onclick="performContainerAction('${container.id}', 'start')">
+                            <i class="bi bi-play-fill"></i> Start
+                        </button>
+                    `;
+                }
+
+                if (container.status === 'running') {
+                    cardContent += `
+                        <button type="button" class="btn btn-warning" onclick="performContainerAction('${container.id}', 'restart')">
+                            <i class="bi bi-arrow-clockwise"></i> Restart
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="performContainerAction('${container.id}', 'stop')">
+                            <i class="bi bi-stop-fill"></i> Stop
+                        </button>
+                    `;
+                }
+
+                cardContent += `
+                        <button type="button" class="btn btn-info" onclick="showContainerLogs('${container.id}', '${container.name}')">
+                            <i class="bi bi-file-text"></i> Logi
                         </button>
                     </div>
                 `;
+
+                // Close card-body and card
+                cardContent += `
+                        </div>
+                    </div>
+                `;
+
+                col.innerHTML = cardContent;
+                containersRow.appendChild(col);
+            });
+        }
+
+        function showContainerLogs(containerId, containerName) {
+            // Create a modal for logs
+            const modalId = `logs-modal-${containerId.substring(0, 8)}`;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById(modalId);
+            if (existingModal) {
+                existingModal.remove();
             }
             
-            // Funkcja zwracająca klasę CSS dla statusu
-            function getStatusBadge(status) {
-                switch (status) {
-                    case 'running': return 'badge-running';
-                    case 'exited': return 'badge-exited';
-                    case 'stopped': return 'badge-stopped';
-                    case 'restarting': return 'badge-restarting';
-                    default: return 'badge-secondary';
+            // Create new modal
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = modalId;
+            modal.tabIndex = '-1';
+            modal.setAttribute('aria-labelledby', `${modalId}-label`);
+            modal.setAttribute('aria-hidden', 'true');
+            
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="${modalId}-label">Logi kontenera: ${containerName}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="log-container position-relative" id="log-container-${containerId.substring(0, 8)}">
+                                <button class="btn btn-sm btn-outline-light copy-button" onclick="copyLogs('${containerId.substring(0, 8)}')">
+                                    <i class="bi bi-clipboard"></i> Kopiuj
+                                </button>
+                                <div id="logs-content-${containerId.substring(0, 8)}">Ładowanie logów...</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Show the modal
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+            
+            // Fetch logs
+            fetch(`/api/docker/container/${containerId}/logs`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayLogs(containerId.substring(0, 8), data.logs);
+                    } else {
+                        document.getElementById(`logs-content-${containerId.substring(0, 8)}`).innerHTML = 
+                            `<div class="alert alert-danger">Błąd: ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById(`logs-content-${containerId.substring(0, 8)}`).innerHTML = 
+                        `<div class="alert alert-danger">Błąd: ${error}</div>`;
+                });
+        }
+
+        function displayLogs(containerIdShort, logs) {
+            const logsContent = document.getElementById(`logs-content-${containerIdShort}`);
+            
+            if (!logs || logs.length === 0) {
+                logsContent.innerHTML = 'Brak dostępnych logów.';
+                return;
+            }
+            
+            // Format logs with colors for timestamps, errors, and warnings
+            let formattedLogs = logs.replace(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+Z)/g, '<span class="log-timestamp">$1</span>');
+            formattedLogs = formattedLogs.replace(/(error|exception|fail|failed|failure)/gi, '<span class="log-error">$1</span>');
+            formattedLogs = formattedLogs.replace(/(warning|warn)/gi, '<span class="log-warning">$1</span>');
+            
+            logsContent.innerHTML = formattedLogs;
+        }
+
+        function copyLogs(containerIdShort) {
+            const logsContent = document.getElementById(`logs-content-${containerIdShort}`);
+            const textToCopy = logsContent.innerText || logsContent.textContent;
+            
+            navigator.clipboard.writeText(textToCopy).then(
+                function() {
+                    showToast('Logi skopiowane do schowka', 'success');
+                }, 
+                function(err) {
+                    showToast('Nie udało się skopiować logów: ' + err, 'danger');
                 }
-            }
+            );
+        }
+
+        function performContainerAction(containerId, action) {
+            fetch('/api/docker/container/action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    container_id: containerId,
+                    action: action
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(`Akcja ${action} wykonana pomyślnie`, 'success');
+                    // Reload container data after a short delay
+                    setTimeout(loadContainersData, 2000);
+                } else {
+                    showToast(`Błąd: ${data.message}`, 'danger');
+                }
+            })
+            .catch(error => {
+                showToast(`Błąd: ${error}`, 'danger');
+            });
+        }
+
+        function showError(message) {
+            const containersRow = document.getElementById('containers-row');
+            containersRow.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        ${message}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showToast(message, type) {
+            const toastContainer = document.querySelector('.toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
             
-            // Funkcja skracająca ID kontenera
-            function shortenId(id) {
-                return id.substring(0, 12);
-            }
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
             
-            // Event listenery
-            refreshBtn.addEventListener('click', loadWebInterfaces);
-            quickRefreshBtn.addEventListener('click', loadWebInterfaces);
-            autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
+            toastContainer.appendChild(toast);
             
-            // Załaduj dane przy starcie
-            loadWebInterfaces();
-        });
+            const bsToast = new bootstrap.Toast(toast, {
+                autohide: true,
+                delay: 3000
+            });
+            
+            bsToast.show();
+            
+            // Remove toast from DOM after it's hidden
+            toast.addEventListener('hidden.bs.toast', function () {
+                toast.remove();
+            });
+        }
     </script>
-</body>
-</html>
+{% endblock %}

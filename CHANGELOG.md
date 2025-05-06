@@ -2,6 +2,373 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.30] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/ollama_client_class.py
+- Changes in evodev/recovery.py
+- Changes in evodev/recovery_system.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in tests/unit/__init__.py
+
+## [0.1.29] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/ollama_client_class.py
+- Changes in evodev/recovery_system.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in evodev/ollama_client.py
+- Changes in evodev/recovery.py
+- Changes in monitor/templates/base.html
+- Changes in monitor/templates/todos.html
+- Changes in tests/__init__.py
+- Changes in tests/unit/__init__.py
+
+## [0.1.28] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/ollama_client_class.py
+- Changes in evodev/recovery_system.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in evodev/ollama_client.py
+- Changes in evodev/recovery.py
+- Changes in monitor/templates/base.html
+- Changes in monitor/templates/todos.html
+- Changes in tests/__init__.py
+- Changes in tests/unit/__init__.py
+
+## [0.1.27] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/ollama_client_class.py
+- Changes in evodev/recovery_system.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in evodev/ollama_client.py
+- Changes in evodev/recovery.py
+- Changes in monitor/templates/base.html
+- Changes in monitor/templates/todos.html
+- Changes in tests/__init__.py
+- Changes in tests/unit/__init__.py
+
+## [0.1.26] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/ollama_client_class.py
+- Changes in evodev/recovery_system.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in evodev/ollama_client.py
+- Changes in evodev/recovery.py
+- Changes in monitor/templates/base.html
+- Changes in monitor/templates/todos.html
+- Changes in tests/__init__.py
+- Changes in tests/unit/__init__.py
+
+## [0.1.25] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/ollama_client_class.py
+- Changes in evodev/recovery_system.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in evodev/ollama_client.py
+- Changes in evodev/recovery.py
+- Changes in monitor/templates/base.html
+- Changes in monitor/templates/todos.html
+- Changes in tests/__init__.py
+- Changes in tests/unit/__init__.py
+
+## [0.1.24] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/ollama_client_class.py
+- Changes in evodev/recovery_system.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in evodev/ollama_client.py
+- Changes in evodev/recovery.py
+- Changes in monitor/templates/base.html
+- Changes in monitor/templates/todos.html
+- Changes in tests/__init__.py
+- Changes in tests/unit/__init__.py
+
+## [0.1.23] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in monitor/templates/base.html
+- Changes in monitor/templates/todos.html
+
+## [0.1.22] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in evodev/main.py
+- Changes in evodev/web_projects.py
+- Changes in examples/example_usage.py
+- Changes in fix_evodev_issues.ipynb
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in monitor/templates/base.html
+
+## [0.1.21] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_requests.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in monitor/templates/logs.html
+- Changes in monitor/templates/web_projects.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in monitor/templates/base.html
+
+## [0.1.20] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_web.html
+- Changes in monitor/templates/index.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+### Changed
+- Changes in monitor/templates/base.html
+
+## [0.1.19] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in docker-compose.yml
+- Changes in evodev/__init__.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_web.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+## [0.1.18] - 2025-05-06
+
+### Added
+- Changes in CHANGELOG.md
+- Changes in evodev/__init__.py
+- Changes in examples/example_usage.py
+- Changes in middleware-api/ollama_client.py
+- Changes in monitor/app.py
+- Changes in monitor/templates/chat.html
+- Changes in monitor/templates/docker_web.html
+- Changes in pyproject.toml
+- Changes in recovery-system/recovery.py
+- Changes in setup.py
+- Changes in tests/unit/test_ollama_client.py
+- Changes in tests/unit/test_recovery.py
+
+## [0.1.17] - 2025-05-06
+
+### Added
+- Changes in evodev/__init__.py
+- Changes in monitor/templates/chat.html
+- Changes in pyproject.toml
+- Changes in setup.py
+
 ## [0.1.16] - 2025-05-06
 
 ### Added

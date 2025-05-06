@@ -1,9 +1,8 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EvoDev - Projekty webowe</title>
+{% extends "base.html" %}
+
+{% block title %}EvoDev - Projekty webowe{% endblock %}
+
+{% block head_extra %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -11,416 +10,387 @@
             padding-top: 20px;
             background-color: #f8f9fa;
         }
-        .navbar {
-            margin-bottom: 20px;
-        }
         .card {
             margin-bottom: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #f8f9fa;
+            background-color: #f1f8ff;
         }
         .project-actions {
             display: flex;
             gap: 10px;
         }
+        .badge-running {
+            background-color: #28a745;
+        }
+        .badge-stopped {
+            background-color: #dc3545;
+        }
+        .badge-error {
+            background-color: #fd7e14;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
         .iframe-container {
             position: relative;
-            width: 100%;
-            height: 300px;
             overflow: hidden;
-            background-color: #f8f9fa;
-            border-radius: 0 0 5px 5px;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            margin-top: 15px;
         }
         .iframe-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        .iframe-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            opacity: 0;
-            transition: opacity 0.3s;
-            cursor: pointer;
-        }
-        .iframe-container:hover .iframe-overlay {
-            opacity: 1;
-        }
-        .badge-static {
-            background-color: #28a745;
-            color: white;
-        }
-        .badge-react {
-            background-color: #61dafb;
-            color: #282c34;
-        }
-        .badge-flask {
-            background-color: #000000;
-            color: white;
-        }
-        .refresh-btn {
-            margin-bottom: 20px;
-        }
-        .loading-spinner {
-            display: none;
-            margin-left: 10px;
+            border: 0;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
     <div class="container">
-        <nav class="navbar navbar-expand-lg navbar-light bg-light">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="/">EvoDev</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav">
-                        <li class="nav-item">
-                            <a class="nav-link" href="/">Dashboard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/logs">Logi</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/docker-requests">Docker Requests</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/docker-web">Docker Web</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="/web-projects">Projekty webowe</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/chat">Chat</a>
-                        </li>
-                    </ul>
-                </div>
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h2>Projekty webowe</h2>
+                <p>Zarządzaj swoimi projektami webowymi</p>
             </div>
-        </nav>
+        </div>
 
         <div class="row mb-4">
-            <div class="col-md-8">
-                <h1>Projekty webowe</h1>
-                <p class="text-muted">Zarządzaj projektami webowymi utworzonymi przez EvoDev</p>
-            </div>
-            <div class="col-md-4 text-end">
-                <button id="refreshBtn" class="btn btn-outline-primary refresh-btn">
-                    <i class="bi bi-arrow-clockwise"></i> Odśwież
-                    <span class="spinner-border spinner-border-sm loading-spinner" role="status"></span>
-                </button>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProjectModal">
-                    <i class="bi bi-plus-circle"></i> Nowy projekt
-                </button>
-            </div>
-        </div>
-
-        <div id="projectsContainer" class="row">
-            <!-- Tutaj będą wstawiane karty projektów -->
-            <div class="col-12 text-center py-5">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Ładowanie...</span>
-                </div>
-                <p class="mt-3">Ładowanie projektów...</p>
-            </div>
-        </div>
-
-        <!-- Modal do tworzenia nowego projektu -->
-        <div class="modal fade" id="createProjectModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Utwórz nowy projekt</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Utwórz nowy projekt</h5>
                     </div>
-                    <div class="modal-body">
-                        <form id="createProjectForm">
+                    <div class="card-body">
+                        <form id="create-project-form">
                             <div class="mb-3">
-                                <label for="projectName" class="form-label">Nazwa projektu</label>
-                                <input type="text" class="form-control" id="projectName" required>
+                                <label for="project-name" class="form-label">Nazwa projektu</label>
+                                <input type="text" class="form-control" id="project-name" required>
+                                <div class="form-text">Nazwa projektu (tylko litery, cyfry, myślniki i podkreślenia)</div>
                             </div>
                             <div class="mb-3">
-                                <label for="projectType" class="form-label">Typ projektu</label>
-                                <select class="form-select" id="projectType">
+                                <label for="project-type" class="form-label">Typ projektu</label>
+                                <select class="form-select" id="project-type" required>
                                     <option value="static">Statyczna strona HTML</option>
                                     <option value="react">Aplikacja React</option>
-                                    <option value="flask">Aplikacja Flask</option>
+                                    <option value="flask">Aplikacja Flask (Python)</option>
                                 </select>
                             </div>
-                            <div class="mb-3">
-                                <label for="projectPort" class="form-label">Port</label>
-                                <input type="number" class="form-control" id="projectPort" value="8088" min="1024" max="65535">
-                            </div>
+                            <button type="submit" class="btn btn-primary">Utwórz projekt</button>
                         </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                        <button type="button" class="btn btn-primary" id="createProjectBtn">Utwórz</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Modal do wyświetlania wiadomości -->
-        <div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="messageModalTitle">Komunikat</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="messageModalBody">
-                        <!-- Tutaj będzie wstawiana treść komunikatu -->
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        <div class="row">
+            <div class="col-md-12">
+                <h3>Istniejące projekty</h3>
+                <div id="projects-container">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Ładowanie...</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+{% endblock %}
+
+{% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Elementy DOM
-        const projectsContainer = document.getElementById('projectsContainer');
-        const refreshBtn = document.getElementById('refreshBtn');
-        const createProjectBtn = document.getElementById('createProjectBtn');
-        const createProjectForm = document.getElementById('createProjectForm');
-        const projectNameInput = document.getElementById('projectName');
-        const projectTypeSelect = document.getElementById('projectType');
-        const projectPortInput = document.getElementById('projectPort');
-        const messageModalTitle = document.getElementById('messageModalTitle');
-        const messageModalBody = document.getElementById('messageModalBody');
-        const loadingSpinner = document.querySelector('.loading-spinner');
-        
-        // Modals
-        const createProjectModal = new bootstrap.Modal(document.getElementById('createProjectModal'));
-        const messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
-        
-        // Funkcja ładująca projekty
-        function loadProjects() {
-            showLoading();
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load projects on page load
+            loadProjects();
             
+            // Handle form submission
+            document.getElementById('create-project-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                createProject();
+            });
+        });
+        
+        function loadProjects() {
             fetch('/api/web-projects')
                 .then(response => response.json())
                 .then(data => {
-                    hideLoading();
-                    
                     if (data.success) {
                         displayProjects(data.projects);
                     } else {
-                        showMessage('Błąd', data.error || 'Nie udało się załadować projektów');
+                        showToast('Błąd', data.message, 'danger');
                     }
                 })
                 .catch(error => {
-                    hideLoading();
-                    showMessage('Błąd', 'Wystąpił błąd podczas ładowania projektów: ' + error);
+                    console.error('Error:', error);
+                    showToast('Błąd', 'Nie udało się załadować projektów', 'danger');
                 });
         }
         
-        // Funkcja wyświetlająca projekty
         function displayProjects(projects) {
-            projectsContainer.innerHTML = '';
+            const projectsContainer = document.getElementById('projects-container');
             
             if (projects.length === 0) {
-                projectsContainer.innerHTML = `
-                    <div class="col-12 text-center py-5">
-                        <i class="bi bi-folder-x" style="font-size: 3rem;"></i>
-                        <p class="mt-3">Brak projektów. Kliknij "Nowy projekt", aby utworzyć pierwszy projekt.</p>
-                    </div>
-                `;
+                projectsContainer.innerHTML = '<div class="alert alert-info">Brak projektów. Utwórz swój pierwszy projekt!</div>';
                 return;
             }
+            
+            let projectsHtml = '<div class="row">';
             
             projects.forEach(project => {
-                const projectCard = document.createElement('div');
-                projectCard.className = 'col-md-6 col-lg-4';
+                let statusBadge = '';
+                if (project.status === 'running') {
+                    statusBadge = '<span class="badge badge-running text-white">Uruchomiony</span>';
+                } else if (project.status === 'stopped') {
+                    statusBadge = '<span class="badge badge-stopped text-white">Zatrzymany</span>';
+                } else {
+                    statusBadge = '<span class="badge badge-error text-white">Błąd</span>';
+                }
                 
-                const badgeClass = `badge-${project.type}`;
+                let actionsHtml = '<div class="project-actions">';
                 
-                projectCard.innerHTML = `
-                    <div class="card">
-                        <div class="card-header">
-                            <div>
-                                <h5 class="card-title mb-0">${project.name}</h5>
-                                <span class="badge ${badgeClass}">${project.type}</span>
-                                <small class="text-muted d-block">Port: ${project.port}</small>
-                            </div>
-                        </div>
+                if (project.status === 'running') {
+                    actionsHtml += `
+                        <button class="btn btn-sm btn-outline-primary" onclick="openProject('${project.name}', '${project.url}')">
+                            <i class="bi bi-box-arrow-up-right"></i> Otwórz
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="projectAction('${project.name}', 'stop')">
+                            <i class="bi bi-stop-circle"></i> Zatrzymaj
+                        </button>
+                    `;
+                } else {
+                    actionsHtml += `
+                        <button class="btn btn-sm btn-success" onclick="projectAction('${project.name}', 'start')">
+                            <i class="bi bi-play-circle"></i> Uruchom
+                        </button>
+                    `;
+                }
+                
+                actionsHtml += `
+                    <button class="btn btn-sm btn-danger" onclick="projectAction('${project.name}', 'remove')">
+                        <i class="bi bi-trash"></i> Usuń
+                    </button>
+                </div>`;
+                
+                let iframeHtml = '';
+                if (project.status === 'running' && project.url) {
+                    iframeHtml = `
                         <div class="iframe-container">
-                            <iframe src="http://localhost:${project.port}" title="${project.name}"></iframe>
-                            <div class="iframe-overlay">
-                                <h4>${project.name}</h4>
-                                <p>Kliknij, aby otworzyć w nowym oknie</p>
-                                <a href="http://localhost:${project.port}" target="_blank" class="btn btn-light">
-                                    <i class="bi bi-box-arrow-up-right"></i> Otwórz
-                                </a>
-                            </div>
+                            <iframe src="${project.url}" title="${project.name}" allowfullscreen></iframe>
                         </div>
-                        <div class="card-footer">
-                            <div class="project-actions">
-                                <a href="http://localhost:${project.port}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-box-arrow-up-right"></i> Otwórz
-                                </a>
-                                <button class="btn btn-outline-danger btn-sm project-action" data-action="stop" data-project="${project.name}">
-                                    <i class="bi bi-stop-circle"></i> Zatrzymaj
-                                </button>
-                                <button class="btn btn-outline-danger btn-sm project-action" data-action="remove" data-project="${project.name}">
-                                    <i class="bi bi-trash"></i> Usuń
-                                </button>
+                    `;
+                }
+                
+                let logsHtml = `
+                    <div class="project-logs mb-3">
+                        <button class="btn btn-sm btn-outline-secondary mb-2" onclick="showProjectLogs('${project.name}')">
+                            <i class="bi bi-file-text"></i> Pokaż logi
+                        </button>
+                        <div id="logs-${project.name}" class="logs-container d-none">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Ładowanie...</span>
                             </div>
+                            <span>Ładowanie logów...</span>
                         </div>
                     </div>
                 `;
                 
-                projectsContainer.appendChild(projectCard);
+                projectsHtml += `
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${project.name}</h5>
+                                ${statusBadge}
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Typ:</strong> ${project.type}</p>
+                                ${project.url ? `<p><strong>URL:</strong> <a href="${project.url}" target="_blank">${project.url}</a></p>` : ''}
+                                ${logsHtml}
+                                ${actionsHtml}
+                                ${iframeHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
             });
             
-            // Dodaj obsługę przycisków akcji
-            document.querySelectorAll('.project-action').forEach(button => {
-                button.addEventListener('click', function() {
-                    const action = this.getAttribute('data-action');
-                    const projectName = this.getAttribute('data-project');
-                    performProjectAction(projectName, action);
-                });
-            });
-            
-            // Dodaj obsługę kliknięcia w iframe-overlay
-            document.querySelectorAll('.iframe-overlay').forEach(overlay => {
-                overlay.addEventListener('click', function(e) {
-                    if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON') {
-                        const link = this.querySelector('a');
-                        if (link) {
-                            window.open(link.href, '_blank');
-                        }
-                    }
-                });
-            });
+            projectsHtml += '</div>';
+            projectsContainer.innerHTML = projectsHtml;
         }
         
-        // Funkcja wykonująca akcję na projekcie
-        function performProjectAction(projectName, action) {
-            showLoading();
-            
-            fetch(`/api/web-projects/${projectName}/action`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ action: action })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    hideLoading();
-                    
-                    if (data.success) {
-                        showMessage('Sukces', data.message);
-                        loadProjects();
-                    } else {
-                        showMessage('Błąd', data.error || 'Nie udało się wykonać akcji');
-                    }
-                })
-                .catch(error => {
-                    hideLoading();
-                    showMessage('Błąd', 'Wystąpił błąd podczas wykonywania akcji: ' + error);
-                });
-        }
-        
-        // Funkcja tworząca nowy projekt
         function createProject() {
-            const name = projectNameInput.value.trim();
-            const type = projectTypeSelect.value;
-            const port = parseInt(projectPortInput.value);
+            const projectName = document.getElementById('project-name').value;
+            const projectType = document.getElementById('project-type').value;
             
-            if (!name) {
-                showMessage('Błąd', 'Nazwa projektu jest wymagana');
+            if (!projectName) {
+                showToast('Błąd', 'Nazwa projektu jest wymagana', 'danger');
                 return;
             }
             
-            if (isNaN(port) || port < 1024 || port > 65535) {
-                showMessage('Błąd', 'Port musi być liczbą z zakresu 1024-65535');
+            // Validate project name (only letters, numbers, dashes, and underscores)
+            if (!/^[a-zA-Z0-9-_]+$/.test(projectName)) {
+                showToast('Błąd', 'Nazwa projektu może zawierać tylko litery, cyfry, myślniki i podkreślenia', 'danger');
                 return;
             }
-            
-            showLoading();
-            createProjectModal.hide();
             
             fetch('/api/web-projects', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    name: name,
-                    type: type,
-                    port: port
-                })
+                    name: projectName,
+                    type: projectType
+                }),
             })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Sukces', `Projekt "${projectName}" został utworzony`, 'success');
+                    document.getElementById('project-name').value = '';
+                    loadProjects();
+                } else {
+                    showToast('Błąd', data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', 'Nie udało się utworzyć projektu', 'danger');
+            });
+        }
+        
+        function projectAction(projectName, action) {
+            fetch(`/api/web-projects/${projectName}/action`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: action
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let actionText = '';
+                    switch (action) {
+                        case 'start':
+                            actionText = 'uruchomiony';
+                            break;
+                        case 'stop':
+                            actionText = 'zatrzymany';
+                            break;
+                        case 'remove':
+                            actionText = 'usunięty';
+                            break;
+                    }
+                    showToast('Sukces', `Projekt "${projectName}" został ${actionText}`, 'success');
+                    loadProjects();
+                } else {
+                    showToast('Błąd', data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', `Nie udało się wykonać akcji "${action}" na projekcie`, 'danger');
+            });
+        }
+        
+        function openProject(projectName, url) {
+            window.open(url, '_blank');
+        }
+        
+        function showProjectLogs(projectName) {
+            const logsContainer = document.getElementById(`logs-${projectName}`);
+            logsContainer.classList.remove('d-none');
+            
+            fetch(`/api/web-projects/${projectName}/logs`)
                 .then(response => response.json())
                 .then(data => {
-                    hideLoading();
-                    
                     if (data.success) {
-                        showMessage('Sukces', data.message);
-                        loadProjects();
-                        resetCreateProjectForm();
+                        let logsHtml = '<div class="logs-content p-2 mt-2 bg-dark text-light" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.8rem;">';
+                        
+                        if (data.logs && data.logs.length > 0) {
+                            data.logs.forEach(log => {
+                                let logClass = '';
+                                if (log.includes('[ERROR]') || log.includes('ERROR')) {
+                                    logClass = 'text-danger';
+                                } else if (log.includes('[WARNING]') || log.includes('WARNING')) {
+                                    logClass = 'text-warning';
+                                } else if (log.includes('[INFO]') || log.includes('INFO')) {
+                                    logClass = 'text-info';
+                                }
+                                
+                                logsHtml += `<div class="${logClass}">${log}</div>`;
+                            });
+                        } else {
+                            logsHtml += '<div>Brak dostępnych logów</div>';
+                        }
+                        
+                        if (data.note) {
+                            logsHtml += `<div class="text-warning mt-2">${data.note}</div>`;
+                        }
+                        
+                        logsHtml += '</div>';
+                        logsHtml += '<button class="btn btn-sm btn-outline-secondary mt-2" onclick="hideProjectLogs(\'' + projectName + '\')">Ukryj logi</button>';
+                        
+                        logsContainer.innerHTML = logsHtml;
                     } else {
-                        showMessage('Błąd', data.error || 'Nie udało się utworzyć projektu');
+                        logsContainer.innerHTML = `<div class="alert alert-danger">Błąd: ${data.error || 'Nie udało się załadować logów'}</div>`;
                     }
                 })
                 .catch(error => {
-                    hideLoading();
-                    showMessage('Błąd', 'Wystąpił błąd podczas tworzenia projektu: ' + error);
+                    console.error('Error:', error);
+                    logsContainer.innerHTML = '<div class="alert alert-danger">Nie udało się załadować logów</div>';
                 });
         }
         
-        // Funkcja resetująca formularz tworzenia projektu
-        function resetCreateProjectForm() {
-            projectNameInput.value = '';
-            projectTypeSelect.value = 'static';
-            projectPortInput.value = '8088';
+        function hideProjectLogs(projectName) {
+            const logsContainer = document.getElementById(`logs-${projectName}`);
+            logsContainer.classList.add('d-none');
         }
         
-        // Funkcja wyświetlająca komunikat
-        function showMessage(title, message) {
-            messageModalTitle.textContent = title;
-            messageModalBody.textContent = message;
-            messageModal.show();
+        function showToast(title, message, type) {
+            const toastContainer = document.querySelector('.toast-container');
+            
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}:</strong> ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast, {
+                autohide: true,
+                delay: 5000
+            });
+            
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
         }
-        
-        // Funkcje pokazujące/ukrywające ładowanie
-        function showLoading() {
-            loadingSpinner.style.display = 'inline-block';
-            refreshBtn.disabled = true;
-        }
-        
-        function hideLoading() {
-            loadingSpinner.style.display = 'none';
-            refreshBtn.disabled = false;
-        }
-        
-        // Event listeners
-        refreshBtn.addEventListener('click', loadProjects);
-        createProjectBtn.addEventListener('click', createProject);
-        
-        // Załaduj projekty po załadowaniu strony
-        document.addEventListener('DOMContentLoaded', loadProjects);
     </script>
-</body>
-</html>
+{% endblock %}

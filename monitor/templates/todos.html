@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+
+{% block title %}EvoDev - Lista zadań TODO{% endblock %}
+
+{% block head_extra %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f8f9fa;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            background-color: #f1f8ff;
+        }
+        .todo-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .priority-high {
+            border-left: 5px solid #dc3545;
+        }
+        .priority-medium {
+            border-left: 5px solid #ffc107;
+        }
+        .priority-low {
+            border-left: 5px solid #28a745;
+        }
+        .todo-completed {
+            background-color: #f8f9fa;
+            opacity: 0.7;
+            text-decoration: line-through;
+        }
+        .todo-completed .card-title {
+            text-decoration: line-through;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+        .category-badge {
+            font-size: 0.8em;
+            padding: 0.35em 0.65em;
+            margin-left: 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h2>Lista zadań TODO</h2>
+                <p>Zarządzaj swoimi zadaniami i projektami</p>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Dodaj nowe zadanie</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="add-todo-form">
+                            <div class="mb-3">
+                                <label for="todo-title" class="form-label">Tytuł zadania</label>
+                                <input type="text" class="form-control" id="todo-title" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="todo-description" class="form-label">Opis zadania</label>
+                                <textarea class="form-control" id="todo-description" rows="3"></textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="todo-priority" class="form-label">Priorytet</label>
+                                    <select class="form-select" id="todo-priority">
+                                        <option value="high">Wysoki</option>
+                                        <option value="medium" selected>Średni</option>
+                                        <option value="low">Niski</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="todo-category" class="form-label">Kategoria</label>
+                                    <select class="form-select" id="todo-category">
+                                        <option value="general" selected>Ogólne</option>
+                                        <option value="development">Rozwój</option>
+                                        <option value="bug">Błędy</option>
+                                        <option value="feature">Funkcjonalności</option>
+                                        <option value="documentation">Dokumentacja</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Dodaj zadanie</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Filtrowanie i sortowanie</h5>
+                        <button id="refresh-todos" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise"></i> Odśwież
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="filter-status" class="form-label">Status</label>
+                                <select class="form-select" id="filter-status">
+                                    <option value="all" selected>Wszystkie</option>
+                                    <option value="pending">W trakcie</option>
+                                    <option value="completed">Zakończone</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="filter-priority" class="form-label">Priorytet</label>
+                                <select class="form-select" id="filter-priority">
+                                    <option value="all" selected>Wszystkie</option>
+                                    <option value="high">Wysoki</option>
+                                    <option value="medium">Średni</option>
+                                    <option value="low">Niski</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="filter-category" class="form-label">Kategoria</label>
+                                <select class="form-select" id="filter-category">
+                                    <option value="all" selected>Wszystkie</option>
+                                    <option value="general">Ogólne</option>
+                                    <option value="development">Rozwój</option>
+                                    <option value="bug">Błędy</option>
+                                    <option value="feature">Funkcjonalności</option>
+                                    <option value="documentation">Dokumentacja</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <h3>Zadania</h3>
+                <div id="todos-container">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Ładowanie...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for editing todo -->
+    <div class="modal fade" id="edit-todo-modal" tabindex="-1" aria-labelledby="edit-todo-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="edit-todo-modal-label">Edytuj zadanie</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-todo-form">
+                        <input type="hidden" id="edit-todo-id">
+                        <div class="mb-3">
+                            <label for="edit-todo-title" class="form-label">Tytuł zadania</label>
+                            <input type="text" class="form-control" id="edit-todo-title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit-todo-description" class="form-label">Opis zadania</label>
+                            <textarea class="form-control" id="edit-todo-description" rows="3"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="edit-todo-priority" class="form-label">Priorytet</label>
+                                <select class="form-select" id="edit-todo-priority">
+                                    <option value="high">Wysoki</option>
+                                    <option value="medium">Średni</option>
+                                    <option value="low">Niski</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="edit-todo-category" class="form-label">Kategoria</label>
+                                <select class="form-select" id="edit-todo-category">
+                                    <option value="general">Ogólne</option>
+                                    <option value="development">Rozwój</option>
+                                    <option value="bug">Błędy</option>
+                                    <option value="feature">Funkcjonalności</option>
+                                    <option value="documentation">Dokumentacja</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="edit-todo-status" class="form-label">Status</label>
+                                <select class="form-select" id="edit-todo-status">
+                                    <option value="pending">W trakcie</option>
+                                    <option value="completed">Zakończone</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="button" class="btn btn-primary" id="save-edit-todo">Zapisz zmiany</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load todos on page load
+            loadTodos();
+            
+            // Handle form submission
+            document.getElementById('add-todo-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                addTodo();
+            });
+            
+            // Handle refresh button
+            document.getElementById('refresh-todos').addEventListener('click', function() {
+                loadTodos();
+            });
+            
+            // Handle filter changes
+            document.getElementById('filter-status').addEventListener('change', applyFilters);
+            document.getElementById('filter-priority').addEventListener('change', applyFilters);
+            document.getElementById('filter-category').addEventListener('change', applyFilters);
+            
+            // Handle save edit button
+            document.getElementById('save-edit-todo').addEventListener('click', function() {
+                saveTodoEdit();
+            });
+        });
+        
+        function loadTodos() {
+            fetch('/api/todos')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Store todos in global variable for filtering
+                        window.allTodos = data.todos;
+                        applyFilters();
+                    } else {
+                        showToast('Błąd', data.error || 'Nie udało się załadować zadań', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('Błąd', 'Nie udało się załadować zadań', 'danger');
+                });
+        }
+        
+        function applyFilters() {
+            if (!window.allTodos) return;
+            
+            const statusFilter = document.getElementById('filter-status').value;
+            const priorityFilter = document.getElementById('filter-priority').value;
+            const categoryFilter = document.getElementById('filter-category').value;
+            
+            let filteredTodos = window.allTodos.filter(todo => {
+                if (statusFilter !== 'all' && todo.status !== statusFilter) return false;
+                if (priorityFilter !== 'all' && todo.priority !== priorityFilter) return false;
+                if (categoryFilter !== 'all' && todo.category !== categoryFilter) return false;
+                return true;
+            });
+            
+            displayTodos(filteredTodos);
+        }
+        
+        function displayTodos(todos) {
+            const todosContainer = document.getElementById('todos-container');
+            
+            if (todos.length === 0) {
+                todosContainer.innerHTML = '<div class="alert alert-info">Brak zadań spełniających kryteria filtrowania.</div>';
+                return;
+            }
+            
+            let todosHtml = '';
+            
+            todos.forEach(todo => {
+                const priorityClass = `priority-${todo.priority}`;
+                const completedClass = todo.status === 'completed' ? 'todo-completed' : '';
+                
+                let categoryBadge = '';
+                let categoryColor = 'secondary';
+                
+                if (todo.category === 'development') categoryColor = 'info';
+                if (todo.category === 'bug') categoryColor = 'danger';
+                if (todo.category === 'feature') categoryColor = 'primary';
+                if (todo.category === 'documentation') categoryColor = 'warning';
+                
+                categoryBadge = `<span class="badge bg-${categoryColor} category-badge">${todo.category}</span>`;
+                
+                const createdDate = new Date(todo.created_at).toLocaleString();
+                
+                todosHtml += `
+                    <div class="card mb-3 ${priorityClass} ${completedClass}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title">${todo.title} ${categoryBadge}</h5>
+                                <div class="todo-actions">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editTodo(${todo.id})">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success" onclick="toggleTodoStatus(${todo.id}, '${todo.status === 'completed' ? 'pending' : 'completed'}')">
+                                        <i class="bi bi-${todo.status === 'completed' ? 'arrow-counterclockwise' : 'check-lg'}"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTodo(${todo.id})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="card-text">${todo.description || 'Brak opisu'}</p>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">Priorytet: ${todo.priority}</small>
+                                <small class="text-muted">Utworzono: ${createdDate}</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            todosContainer.innerHTML = todosHtml;
+        }
+        
+        function addTodo() {
+            const title = document.getElementById('todo-title').value;
+            const description = document.getElementById('todo-description').value;
+            const priority = document.getElementById('todo-priority').value;
+            const category = document.getElementById('todo-category').value;
+            
+            if (!title) {
+                showToast('Błąd', 'Tytuł zadania jest wymagany', 'danger');
+                return;
+            }
+            
+            fetch('/api/todos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title,
+                    description,
+                    priority,
+                    category
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Sukces', 'Zadanie zostało dodane', 'success');
+                    document.getElementById('add-todo-form').reset();
+                    loadTodos();
+                } else {
+                    showToast('Błąd', data.error || 'Nie udało się dodać zadania', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', 'Nie udało się dodać zadania', 'danger');
+            });
+        }
+        
+        function editTodo(id) {
+            const todo = window.allTodos.find(t => t.id === id);
+            if (!todo) return;
+            
+            document.getElementById('edit-todo-id').value = todo.id;
+            document.getElementById('edit-todo-title').value = todo.title;
+            document.getElementById('edit-todo-description').value = todo.description || '';
+            document.getElementById('edit-todo-priority').value = todo.priority;
+            document.getElementById('edit-todo-category').value = todo.category;
+            document.getElementById('edit-todo-status').value = todo.status;
+            
+            const modal = new bootstrap.Modal(document.getElementById('edit-todo-modal'));
+            modal.show();
+        }
+        
+        function saveTodoEdit() {
+            const id = document.getElementById('edit-todo-id').value;
+            const title = document.getElementById('edit-todo-title').value;
+            const description = document.getElementById('edit-todo-description').value;
+            const priority = document.getElementById('edit-todo-priority').value;
+            const category = document.getElementById('edit-todo-category').value;
+            const status = document.getElementById('edit-todo-status').value;
+            
+            if (!title) {
+                showToast('Błąd', 'Tytuł zadania jest wymagany', 'danger');
+                return;
+            }
+            
+            fetch(`/api/todos/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title,
+                    description,
+                    priority,
+                    category,
+                    status
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Sukces', 'Zadanie zostało zaktualizowane', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('edit-todo-modal')).hide();
+                    loadTodos();
+                } else {
+                    showToast('Błąd', data.error || 'Nie udało się zaktualizować zadania', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', 'Nie udało się zaktualizować zadania', 'danger');
+            });
+        }
+        
+        function toggleTodoStatus(id, newStatus) {
+            fetch(`/api/todos/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    status: newStatus
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Sukces', `Zadanie zostało ${newStatus === 'completed' ? 'zakończone' : 'wznowione'}`, 'success');
+                    loadTodos();
+                } else {
+                    showToast('Błąd', data.error || 'Nie udało się zmienić statusu zadania', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', 'Nie udało się zmienić statusu zadania', 'danger');
+            });
+        }
+        
+        function deleteTodo(id) {
+            if (!confirm('Czy na pewno chcesz usunąć to zadanie?')) return;
+            
+            fetch(`/api/todos/${id}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Sukces', 'Zadanie zostało usunięte', 'success');
+                    loadTodos();
+                } else {
+                    showToast('Błąd', data.error || 'Nie udało się usunąć zadania', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Błąd', 'Nie udało się usunąć zadania', 'danger');
+            });
+        }
+        
+        function showToast(title, message, type = 'info') {
+            const toastContainer = document.querySelector('.toast-container');
+            const toastId = 'toast-' + Date.now();
+            
+            const toastHtml = `
+                <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header bg-${type} text-white">
+                        <strong class="me-auto">${title}</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 5000 });
+            toast.show();
+            
+            // Remove toast from DOM after it's hidden
+            toastElement.addEventListener('hidden.bs.toast', function() {
+                toastElement.remove();
+            });
+        }
+    </script>
+{% endblock %}

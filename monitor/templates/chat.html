@@ -1,9 +1,8 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EvoDev - Chat AI</title>
+{% extends "base.html" %}
+
+{% block title %}EvoDev - Chat AI{% endblock %}
+
+{% block head_extra %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -21,420 +20,591 @@
             max-width: 95%;
         }
         .chat-container {
-            height: 500px;
+            height: 70vh;
             overflow-y: auto;
             border: 1px solid #ddd;
             border-radius: 5px;
             padding: 15px;
-            margin-bottom: 20px;
             background-color: white;
+            margin-bottom: 15px;
         }
         .message {
             margin-bottom: 15px;
             padding: 10px;
             border-radius: 5px;
-            max-width: 80%;
         }
         .user-message {
-            background-color: #d1ecf1;
-            margin-left: auto;
-            text-align: right;
+            background-color: #e9ecef;
+            margin-left: 20%;
+            margin-right: 5px;
         }
-        .system-message {
-            background-color: #f8d7da;
+        .bot-message {
+            background-color: #f1f8ff;
+            margin-right: 20%;
+            margin-left: 5px;
         }
-        .ai-message {
-            background-color: #d4edda;
-        }
-        .input-group {
-            margin-bottom: 20px;
-        }
-        .token-container {
-            background-color: #fff3cd;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            border: 1px solid #ffeeba;
-        }
-        .token-container.hidden {
-            display: none;
-        }
-        .email-status {
-            background-color: #e2f0d9;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            border: 1px solid #c5e0b4;
-        }
-        .email-status.not-configured {
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-        }
-        pre {
-            background-color: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
+        .message-content {
             white-space: pre-wrap;
         }
-        .loading-spinner {
-            display: inline-block;
-            width: 1rem;
-            height: 1rem;
-            border: 0.2em solid currentColor;
-            border-right-color: transparent;
-            border-radius: 50%;
-            animation: spinner-border .75s linear infinite;
+        .provider-selector {
+            margin-bottom: 20px;
         }
-        @keyframes spinner-border {
+        .provider-tab {
+            cursor: pointer;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px 5px 0 0;
+            background-color: #f8f9fa;
+        }
+        .provider-tab.active {
+            background-color: #fff;
+            border-bottom: 1px solid #fff;
+        }
+        .provider-content {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            margin-bottom: 20px;
+        }
+        .provider-content:not(.active) {
+            display: none;
+        }
+        .markdown-content {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+        .markdown-content pre {
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            padding: 16px;
+            overflow: auto;
+        }
+        .markdown-content code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: rgba(27, 31, 35, 0.05);
+            border-radius: 3px;
+            padding: 0.2em 0.4em;
+        }
+        .markdown-content pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #007bff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
             to { transform: rotate(360deg); }
         }
     </style>
-</head>
-<body>
-    <div class="header">
-        <div class="container-fluid">
-            <h1>EvoDev Chat AI</h1>
-            <p class="lead">System ewolucji i wsparcia EvoDev</p>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="provider-selector">
+                    <ul class="nav nav-tabs" id="providerTabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="openai-tab" data-bs-toggle="tab" href="#openai">OpenAI</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="anthropic-tab" data-bs-toggle="tab" href="#anthropic">Anthropic</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="ollama-tab" data-bs-toggle="tab" href="#ollama-tab">Ollama (Local)</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content p-3 border border-top-0 rounded-bottom" id="providerTabContent">
+                        <div class="tab-pane fade show active" id="openai" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="openai-api-key" class="form-label">API Key</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="openai-api-key" placeholder="Wprowadź klucz API OpenAI">
+                                    <button class="btn btn-outline-secondary" type="button" id="openai-get-key">Uzyskaj klucz</button>
+                                </div>
+                                <div class="form-text">Nie masz klucza API? <a href="https://platform.openai.com/account/api-keys" target="_blank">Utwórz go tutaj</a>.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="openai-model" class="form-label">Model</label>
+                                <select class="form-select" id="openai-model">
+                                    <option value="gpt-4o">GPT-4o</option>
+                                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                    <option value="gpt-4">GPT-4</option>
+                                    <option value="gpt-3.5-turbo" selected>GPT-3.5 Turbo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="anthropic" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="anthropic-api-key" class="form-label">API Key</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="anthropic-api-key" placeholder="Wprowadź klucz API Anthropic">
+                                    <button class="btn btn-outline-secondary" type="button" id="anthropic-get-key">Uzyskaj klucz</button>
+                                </div>
+                                <div class="form-text">Nie masz klucza API? <a href="https://console.anthropic.com/account/keys" target="_blank">Utwórz go tutaj</a>.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="anthropic-model" class="form-label">Model</label>
+                                <select class="form-select" id="anthropic-model">
+                                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                                    <option value="claude-3-sonnet-20240229" selected>Claude 3 Sonnet</option>
+                                    <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="ollama-tab" role="tabpanel">
+                            <div class="card-body">
+                                <p>Modele są uruchamiane lokalnie przez Ollama. <span id="ollama-status" class="text-info">Sprawdzanie statusu Ollama...</span></p>
+                                <div class="mb-3">
+                                    <label for="ollama-model" class="form-label">Model</label>
+                                    <select id="ollama-model" class="form-select">
+                                        <option value="llama2">llama2 (domyślny)</option>
+                                    </select>
+                                    <div class="form-text">Aby pobrać więcej modeli, użyj komendy "ollama pull [nazwa_modelu]" w kontenerze Ollama.</div>
+                                </div>
+                                <button id="check-ollama-status" class="btn btn-outline-secondary">Odśwież status Ollama</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-container" id="chat-container">
+                    <!-- Wiadomości będą dodawane tutaj -->
+                </div>
+
+                <div class="input-group mb-3">
+                    <textarea class="form-control" id="user-input" placeholder="Wpisz wiadomość..." rows="3"></textarea>
+                    <button class="btn btn-primary" type="button" id="send-button">Wyślij</button>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="web-project-detection" checked>
+                    <label class="form-check-label" for="web-project-detection">
+                        Wykrywaj polecenia tworzenia stron internetowych
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
+{% endblock %}
 
-    <div class="container-fluid">
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <a href="/" class="btn btn-secondary">← Powrót do dashboard</a>
-            </div>
-            <div class="col-md-6 text-end">
-                <button class="btn btn-info" id="checkEmailStatusBtn">Sprawdź status email</button>
-            </div>
-        </div>
-
-        <div id="emailStatusContainer" style="display: none;" class="mb-3">
-            <div id="emailStatus" class="email-status">
-                <h5>Status systemu email</h5>
-                <div id="emailStatusContent">
-                    <p>Ładowanie statusu...</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="token-container" id="tokenContainer">
-            <h4>Aktywacja systemu ewolucji</h4>
-            <p>Aby aktywować pełne możliwości systemu EvoDev, potrzebny jest token API do modelu językowego.</p>
-            
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <div class="btn-group w-100" role="group" aria-label="Dostawcy LLM">
-                        <button type="button" class="btn btn-outline-primary" onclick="showProviderTab('openai')">OpenAI</button>
-                        <button type="button" class="btn btn-outline-primary" onclick="showProviderTab('anthropic')">Anthropic</button>
-                        <button type="button" class="btn btn-outline-primary" onclick="showProviderTab('ollama')">Ollama (lokalne)</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="provider-tabs">
-                <div id="openai-tab" class="provider-tab">
-                    <h5>Konfiguracja OpenAI</h5>
-                    <p>Token API OpenAI możesz uzyskać na stronie: <a href="{{ openai_link }}" target="_blank">{{ openai_link }}</a></p>
-                    <div class="input-group mb-3">
-                        <input type="text" class="form-control" id="openaiTokenInput" placeholder="Wprowadź token API OpenAI">
-                        <button class="btn btn-primary" onclick="saveToken('openai')">Zapisz token</button>
-                    </div>
-                </div>
-                
-                <div id="anthropic-tab" class="provider-tab" style="display: none;">
-                    <h5>Konfiguracja Anthropic</h5>
-                    <p>Token API Anthropic możesz uzyskać na stronie: <a href="{{ anthropic_link }}" target="_blank">{{ anthropic_link }}</a></p>
-                    <div class="input-group mb-3">
-                        <input type="text" class="form-control" id="anthropicTokenInput" placeholder="Wprowadź token API Anthropic">
-                        <button class="btn btn-primary" onclick="saveToken('anthropic')">Zapisz token</button>
-                    </div>
-                </div>
-                
-                <div id="ollama-tab" class="provider-tab" style="display: none;">
-                    <h5>Konfiguracja Ollama</h5>
-                    <p>Ollama to lokalne API do modeli językowych. Możesz skonfigurować połączenie z lokalnym serwerem Ollama:</p>
-                    <div class="mb-3">
-                        <label for="ollamaUrlInput" class="form-label">URL serwera Ollama</label>
-                        <input type="text" class="form-control" id="ollamaUrlInput" value="http://ollama:11434" placeholder="http://ollama:11434">
-                    </div>
-                    <div class="mb-3">
-                        <label for="ollamaModelInput" class="form-label">Model</label>
-                        <select class="form-control" id="ollamaModelInput">
-                            <option value="llama2">Llama 2</option>
-                            <option value="mistral">Mistral</option>
-                            <option value="gemma">Gemma</option>
-                            <option value="phi">Phi</option>
-                        </select>
-                    </div>
-                    <button class="btn btn-primary" onclick="saveToken('ollama')">Zapisz konfigurację</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="chat-container" id="chatContainer">
-            <div class="message system-message">
-                <strong>System:</strong> Witaj w systemie EvoDev! Jestem asystentem, który pomoże Ci w korzystaniu z systemu.
-            </div>
-            <div class="message ai-message">
-                <strong>AI:</strong> Proszę podaj token API do modelu językowego, aby aktywować pełne możliwości systemu EvoDev. Token możesz uzyskać na stronie: <a href="{{ partner_link }}" target="_blank">{{ partner_link }}</a>
-            </div>
-        </div>
-
-        <div class="input-group">
-            <input type="text" class="form-control" id="messageInput" placeholder="Wpisz wiadomość...">
-            <button class="btn btn-primary" id="sendBtn">Wyślij</button>
-        </div>
-    </div>
-
+{% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const chatContainer = document.getElementById('chatContainer');
-            const messageInput = document.getElementById('messageInput');
-            const sendBtn = document.getElementById('sendBtn');
-            const tokenContainer = document.getElementById('tokenContainer');
+            const chatContainer = document.getElementById('chat-container');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            const openaiApiKey = document.getElementById('openai-api-key');
+            const openaiModel = document.getElementById('openai-model');
+            const anthropicApiKey = document.getElementById('anthropic-api-key');
+            const anthropicModel = document.getElementById('anthropic-model');
+            const ollamaModel = document.getElementById('ollama-model');
+            const providerTabs = document.querySelectorAll('#providerTabs .nav-link');
+            const webProjectDetection = document.getElementById('web-project-detection');
+            const checkOllamaStatus = document.getElementById('check-ollama-status');
+            const ollamaStatus = document.getElementById('ollama-status');
             
-            // Sprawdź czy token jest już zapisany
-            fetch('/api/llm/token/status')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.token_set) {
-                        tokenContainer.classList.add('hidden');
-                        addMessage('system', `Token API dla ${data.provider} został już skonfigurowany. System EvoDev jest w pełni aktywny.`);
-                    }
+            let currentProvider = 'openai';
+            let isProcessing = false;
+
+            // Sprawdź zapisane klucze API
+            if (localStorage.getItem('openai-api-key')) {
+                openaiApiKey.value = localStorage.getItem('openai-api-key');
+            }
+            if (localStorage.getItem('anthropic-api-key')) {
+                anthropicApiKey.value = localStorage.getItem('anthropic-api-key');
+            }
+            if (localStorage.getItem('openai-model')) {
+                openaiModel.value = localStorage.getItem('openai-model');
+            }
+            if (localStorage.getItem('anthropic-model')) {
+                anthropicModel.value = localStorage.getItem('anthropic-model');
+            }
+            if (localStorage.getItem('ollama-model')) {
+                ollamaModel.value = localStorage.getItem('ollama-model');
+            }
+            if (localStorage.getItem('current-provider')) {
+                currentProvider = localStorage.getItem('current-provider');
+                document.querySelector(`#providerTabs .nav-link[href="#${currentProvider}"]`).click();
+            }
+            if (localStorage.getItem('web-project-detection') === 'false') {
+                webProjectDetection.checked = false;
+            }
+
+            // Obsługa zmiany zakładek
+            providerTabs.forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    providerTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('show', 'active'));
+                    const target = this.getAttribute('href').substring(1);
+                    document.getElementById(target).classList.add('show', 'active');
+                    
+                    currentProvider = target;
+                    localStorage.setItem('current-provider', currentProvider);
                 });
-            
-            // Obsługa wysyłania wiadomości
-            sendBtn.addEventListener('click', sendMessage);
-            messageInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    sendMessage();
-                }
             });
-            
-            function sendMessage() {
-                const message = messageInput.value.trim();
+
+            // Zapisz klucze API i modele
+            openaiApiKey.addEventListener('change', function() {
+                localStorage.setItem('openai-api-key', this.value);
+            });
+            anthropicApiKey.addEventListener('change', function() {
+                localStorage.setItem('anthropic-api-key', this.value);
+            });
+            openaiModel.addEventListener('change', function() {
+                localStorage.setItem('openai-model', this.value);
+            });
+            anthropicModel.addEventListener('change', function() {
+                localStorage.setItem('anthropic-model', this.value);
+            });
+            ollamaModel.addEventListener('change', function() {
+                localStorage.setItem('ollama-model', this.value);
+            });
+            webProjectDetection.addEventListener('change', function() {
+                localStorage.setItem('web-project-detection', this.checked);
+            });
+
+            // Funkcja do wykrywania poleceń tworzenia stron
+            function detectWebPageCreation(message) {
+                if (!webProjectDetection.checked) return false;
                 
-                if (!message) return;
+                const webCreationPatterns = [
+                    /stw[oó]rz.*stron[eę]/i,
+                    /zr[oó]b.*stron[eę]/i,
+                    /create.*website/i,
+                    /make.*website/i,
+                    /build.*website/i,
+                    /stw[oó]rz.*witryn[eę]/i,
+                    /stw[oó]rz.*portal/i,
+                    /stw[oó]rz.*serwis/i,
+                    /stw[oó]rz.*aplikacj[eę].*web/i,
+                    /stw[oó]rz.*aplikacj[eę].*internetow[aą]/i
+                ];
                 
-                addMessage('user', message);
-                messageInput.value = '';
+                return webCreationPatterns.some(pattern => pattern.test(message));
+            }
+
+            // Funkcja do tworzenia projektu webowego
+            function createWebProject(message) {
+                // Wyodrębnij nazwę projektu z wiadomości
+                let projectName = 'test-website';
+                const nameMatch = message.match(/stw[oó]rz.*(stron[eę]|witryn[eę]|portal|serwis|aplikacj[eę]).*o nazwie[:\s]+([a-zA-Z0-9_-]+)/i);
+                if (nameMatch && nameMatch[2]) {
+                    projectName = nameMatch[2];
+                }
                 
-                // Dodaj animację ładowania
-                const loadingDiv = document.createElement('div');
-                loadingDiv.className = 'message ai-message';
-                loadingDiv.id = 'loadingMessage';
-                loadingDiv.innerHTML = '<strong>AI:</strong> <span class="loading-spinner"></span> Przetwarzanie...';
-                chatContainer.appendChild(loadingDiv);
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+                // Wyodrębnij typ projektu z wiadomości
+                let projectType = 'static';
+                if (/react/i.test(message)) {
+                    projectType = 'react';
+                } else if (/flask/i.test(message) || /python/i.test(message)) {
+                    projectType = 'flask';
+                }
                 
-                fetch('/api/chat/message', {
+                // Wyślij żądanie utworzenia projektu
+                fetch('/api/web-projects', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ message: message })
+                    body: JSON.stringify({
+                        name: projectName,
+                        type: projectType
+                    })
                 })
                 .then(response => response.json())
                 .then(data => {
-                    // Usuń animację ładowania
-                    const loadingMessage = document.getElementById('loadingMessage');
-                    if (loadingMessage) {
-                        chatContainer.removeChild(loadingMessage);
-                    }
-                    
-                    if (data.error) {
-                        addMessage('system', 'Błąd: ' + data.error);
+                    if (data.success) {
+                        addBotMessage(`Utworzyłem projekt webowy "${projectName}" typu ${projectType}. Możesz go zobaczyć w zakładce [Projekty webowe](/web-projects).`);
                     } else {
-                        // Sprawdź, czy odpowiedź zawiera informacje o operacjach email
-                        if (data.response.includes('email') && data.response.includes('wysłan')) {
-                            // Sprawdź status email
-                            checkEmailStatus();
-                        }
-                        
-                        // Formatuj odpowiedź - zamień markdown na HTML
-                        let formattedResponse = data.response
-                            .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>') // code blocks
-                            .replace(/`([^`]+)`/g, '<code>$1</code>') // inline code
-                            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // bold
-                            .replace(/\*([^*]+)\*/g, '<em>$1</em>') // italic
-                            .replace(/\n/g, '<br>'); // newlines
-                        
-                        addMessage('ai', formattedResponse);
+                        addBotMessage(`Nie udało się utworzyć projektu webowego: ${data.message}`);
                     }
                 })
                 .catch(error => {
-                    // Usuń animację ładowania
-                    const loadingMessage = document.getElementById('loadingMessage');
-                    if (loadingMessage) {
-                        chatContainer.removeChild(loadingMessage);
-                    }
-                    
-                    addMessage('system', 'Wystąpił błąd podczas komunikacji z serwerem: ' + error);
+                    addBotMessage(`Wystąpił błąd podczas tworzenia projektu webowego: ${error}`);
                 });
             }
-            
-            function addMessage(type, content) {
+
+            // Funkcja sprawdzająca status Ollama
+            function checkOllamaStatus() {
+                fetch('/api/ollama/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        const ollamaStatusElement = document.getElementById('ollama-status');
+                        const ollamaModelSelect = document.getElementById('ollama-model');
+                        
+                        if (data.success && data.status === 'online') {
+                            ollamaStatusElement.textContent = 'Ollama jest dostępne';
+                            ollamaStatusElement.className = 'text-success';
+                            
+                            // Wypełnij listę modeli
+                            ollamaModelSelect.innerHTML = '';
+                            if (data.models && data.models.length > 0) {
+                                data.models.forEach(model => {
+                                    const option = document.createElement('option');
+                                    option.value = model.name;
+                                    option.textContent = model.name;
+                                    ollamaModelSelect.appendChild(option);
+                                });
+                            } else {
+                                const option = document.createElement('option');
+                                option.value = 'llama2';
+                                option.textContent = 'llama2 (domyślny)';
+                                ollamaModelSelect.appendChild(option);
+                                
+                                // Dodaj informację o braku modeli
+                                const noModelsInfo = document.createElement('div');
+                                noModelsInfo.className = 'alert alert-warning mt-2';
+                                noModelsInfo.textContent = 'Brak zainstalowanych modeli. Użyj komendy "ollama pull llama2" w kontenerze Ollama, aby pobrać model.';
+                                ollamaModelSelect.parentNode.appendChild(noModelsInfo);
+                            }
+                        } else {
+                            ollamaStatusElement.textContent = 'Błąd podczas sprawdzania statusu Ollama: ' + (data.message || 'nieznany błąd');
+                            ollamaStatusElement.className = 'text-danger';
+                            
+                            // Dodaj domyślny model
+                            ollamaModelSelect.innerHTML = '';
+                            const option = document.createElement('option');
+                            option.value = 'llama2';
+                            option.textContent = 'llama2 (domyślny)';
+                            ollamaModelSelect.appendChild(option);
+                        }
+                    })
+                    .catch(error => {
+                        const ollamaStatusElement = document.getElementById('ollama-status');
+                        ollamaStatusElement.textContent = 'Błąd podczas sprawdzania statusu Ollama: ' + error;
+                        ollamaStatusElement.className = 'text-danger';
+                    });
+            }
+
+            checkOllamaStatus();
+
+            // Dodanie obsługi przycisku do odświeżania statusu Ollama
+            document.getElementById('check-ollama-status').addEventListener('click', function() {
+                const ollamaStatusElement = document.getElementById('ollama-status');
+                ollamaStatusElement.textContent = 'Sprawdzanie statusu Ollama...';
+                ollamaStatusElement.className = 'text-info';
+                
+                // Usuń wcześniejsze komunikaty o braku modeli
+                const existingWarnings = document.querySelectorAll('.alert.alert-warning');
+                existingWarnings.forEach(warning => warning.remove());
+                
+                checkOllamaStatus();
+            });
+
+            // Funkcja do dodawania wiadomości użytkownika
+            function addUserMessage(message) {
                 const messageDiv = document.createElement('div');
-                let className = 'message ';
-                let prefix = '';
+                messageDiv.className = 'message user-message';
+                messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            // Funkcja do dodawania wiadomości bota
+            function addBotMessage(message, isMarkdown = true) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message bot-message';
                 
-                switch(type) {
-                    case 'user':
-                        className += 'user-message';
-                        prefix = '<strong>Ty:</strong> ';
-                        break;
-                    case 'ai':
-                        className += 'ai-message';
-                        prefix = '<strong>AI:</strong> ';
-                        break;
-                    case 'system':
-                        className += 'system-message';
-                        prefix = '<strong>System:</strong> ';
-                        break;
+                if (isMarkdown) {
+                    const markdownContent = document.createElement('div');
+                    markdownContent.className = 'message-content markdown-content';
+                    markdownContent.innerHTML = marked.parse(message);
+                    messageDiv.appendChild(markdownContent);
+                } else {
+                    const plainContent = document.createElement('div');
+                    plainContent.className = 'message-content';
+                    plainContent.textContent = message;
+                    messageDiv.appendChild(plainContent);
                 }
-                
-                messageDiv.className = className;
-                messageDiv.innerHTML = prefix + content;
                 
                 chatContainer.appendChild(messageDiv);
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             }
-        });
-        
-        // Funkcja zapisująca token API
-        function saveToken(provider) {
-            let token = '';
-            let model = '';
-            let url = '';
-            
-            switch(provider) {
-                case 'openai':
-                    token = document.getElementById('openaiTokenInput').value.trim();
-                    if (!token) {
-                        alert('Proszę wprowadzić prawidłowy token API OpenAI');
-                        return;
-                    }
-                    break;
-                case 'anthropic':
-                    token = document.getElementById('anthropicTokenInput').value.trim();
-                    if (!token) {
-                        alert('Proszę wprowadzić prawidłowy token API Anthropic');
-                        return;
-                    }
-                    break;
-                case 'ollama':
-                    url = document.getElementById('ollamaUrlInput').value.trim();
-                    model = document.getElementById('ollamaModelInput').value;
-                    if (!url) {
-                        alert('Proszę wprowadzić prawidłowy URL serwera Ollama');
-                        return;
-                    }
-                    break;
-            }
-            
-            fetch('/api/llm/token/set', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    provider: provider,
-                    token: token,
-                    url: url,
-                    model: model
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('tokenContainer').classList.add('hidden');
-                    
-                    // Dodaj wiadomość o konfiguracji
-                    const chatContainer = document.getElementById('chatContainer');
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = 'message system-message';
-                    messageDiv.innerHTML = `<strong>System:</strong> Konfiguracja ${provider} została zapisana. System EvoDev jest teraz w pełni aktywny.`;
-                    chatContainer.appendChild(messageDiv);
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                } else {
-                    alert('Wystąpił błąd podczas zapisywania konfiguracji: ' + data.error);
-                }
-            })
-            .catch(error => {
-                alert('Wystąpił błąd podczas zapisywania konfiguracji: ' + error);
-            });
-        }
 
-        // Funkcja sprawdzająca status email
-        function checkEmailStatus() {
-            fetch('/api/email/status')
+            // Funkcja do dodawania wskaźnika ładowania
+            function addLoadingIndicator() {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message bot-message loading-message';
+                loadingDiv.innerHTML = `<div class="message-content">Myślę<span class="loading"></span></div>`;
+                loadingDiv.id = 'loading-indicator';
+                chatContainer.appendChild(loadingDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            // Funkcja do usuwania wskaźnika ładowania
+            function removeLoadingIndicator() {
+                const loadingIndicator = document.getElementById('loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.remove();
+                }
+            }
+
+            // Funkcja do wysyłania wiadomości
+            function sendMessage() {
+                const message = userInput.value.trim();
+                if (message === '' || isProcessing) return;
+                
+                addUserMessage(message);
+                userInput.value = '';
+                isProcessing = true;
+                
+                // Sprawdź, czy to polecenie utworzenia strony
+                if (detectWebPageCreation(message)) {
+                    createWebProject(message);
+                    isProcessing = false;
+                    return;
+                }
+                
+                addLoadingIndicator();
+                
+                let apiUrl, apiKey, model, requestBody;
+                                
+                                // Change this section in the sendMessage function:
+                switch (currentProvider) {
+                    case 'openai':
+                        apiUrl = '/api/chat/message';  // Change from '/api/chat/openai'
+                        apiKey = openaiApiKey.value;
+                        model = openaiModel.value;
+                        requestBody = {
+                            message: message
+                        };
+                        break;
+                    case 'anthropic':
+                        apiUrl = '/api/chat/message';  // Change from '/api/chat/anthropic'
+                        apiKey = anthropicApiKey.value;
+                        model = anthropicModel.value;
+                        requestBody = {
+                            message: message
+                        };
+                        break;
+                    case 'ollama-tab':
+                        apiUrl = '/api/chat/ollama';
+                        model = ollamaModel.value;
+                        requestBody = {
+                            model: model,
+                            message: message
+                        };
+                        break;
+                }
+
+                                // Set the API token in the backend before making the request
+                if (currentProvider === 'openai' || currentProvider === 'anthropic') {
+                    fetch('/api/llm/token/set', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            provider: currentProvider,
+                            token: currentProvider === 'openai' ? openaiApiKey.value : anthropicApiKey.value,
+                            model: currentProvider === 'openai' ? openaiModel.value : anthropicModel.value
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            removeLoadingIndicator();
+                            addBotMessage(`Błąd ustawienia tokenu API: ${data.error || 'Nieznany błąd'}`, false);
+                            isProcessing = false;
+                            return;
+                        }
+                        
+                        // Continue with the chat request
+                        sendChatRequest();
+                    })
+                    .catch(error => {
+                        removeLoadingIndicator();
+                        addBotMessage(`Wystąpił błąd podczas ustawiania tokenu API: ${error}`, false);
+                        isProcessing = false;
+                    });
+                } else {
+                    // For Ollama, just send the chat request directly
+                    sendChatRequest();
+                }
+
+
+                // Add this function after the sendMessage function
+                function sendChatRequest() {
+                    fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        removeLoadingIndicator();
+                        if (data.success) {
+                            addBotMessage(data.response);
+                        } else {
+                            addBotMessage(`Błąd: ${data.message || data.error || 'Nieznany błąd'}`, false);
+                        }
+                        isProcessing = false;
+                    })
+                    .catch(error => {
+                        removeLoadingIndicator();
+                        addBotMessage(`Wystąpił błąd: ${error}`, false);
+                        isProcessing = false;
+                    });
+                }
+                
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                })
                 .then(response => response.json())
                 .then(data => {
-                    const emailStatusContainer = document.getElementById('emailStatusContainer');
-                    const emailStatus = document.getElementById('emailStatus');
-                    const emailStatusContent = document.getElementById('emailStatusContent');
-                    
-                    if (data.configured) {
-                        emailStatus.classList.remove('not-configured');
-                        emailStatusContent.innerHTML = `<p>Email został poprawnie skonfigurowany.</p>`;
+                    removeLoadingIndicator();
+                    if (data.success) {
+                        addBotMessage(data.response);
                     } else {
-                        emailStatus.classList.add('not-configured');
-                        emailStatusContent.innerHTML = `<p>Email nie został skonfigurowany. Proszę sprawdzić ustawienia.</p>`;
+                        addBotMessage(`Błąd: ${data.message}`, false);
                     }
-                    
-                    emailStatusContainer.style.display = 'block';
+                    isProcessing = false;
                 })
                 .catch(error => {
-                    alert('Wystąpił błąd podczas sprawdzania statusu email: ' + error);
+                    removeLoadingIndicator();
+                    addBotMessage(`Wystąpił błąd: ${error}`, false);
+                    isProcessing = false;
                 });
-        }
-
-        // Funkcja wysyłająca email
-        function sendEmail() {
-            const emailSubject = document.getElementById('emailSubjectInput').value.trim();
-            const emailBody = document.getElementById('emailBodyInput').value.trim();
-            
-            if (!emailSubject || !emailBody) {
-                alert('Proszę wprowadzić temat i treść emaila');
-                return;
             }
-            
-            fetch('/api/email/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    subject: emailSubject,
-                    body: emailBody
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Email został wysłany pomyślnie');
-                } else {
-                    alert('Wystąpił błąd podczas wysyłania emaila: ' + data.error);
-                }
-            })
-            .catch(error => {
-                alert('Wystąpił błąd podczas wysyłania emaila: ' + error);
-            });
-        }
 
-        // Dodaj event listener do przycisku sprawdzającego status email
-        document.getElementById('checkEmailStatusBtn').addEventListener('click', checkEmailStatus);
-        
-        // Funkcja wyświetlająca kartę dostawcy
-        function showProviderTab(provider) {
-            const providerTabs = document.querySelectorAll('.provider-tab');
-            providerTabs.forEach(tab => {
-                tab.style.display = 'none';
+            // Obsługa przycisku wysyłania
+            sendButton.addEventListener('click', sendMessage);
+
+            // Obsługa klawisza Enter
+            userInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
             });
-            document.getElementById(`${provider}-tab`).style.display = 'block';
-        }
+
+            // Dodaj powitalną wiadomość
+            addBotMessage('Witaj! Jestem asystentem AI. W czym mogę pomóc?');
+        });
     </script>
-</body>
-</html>
+{% endblock %}
