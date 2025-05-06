@@ -574,6 +574,85 @@ def docker_web_view():
     """Strona z widokiem interfejsów webowych kontenerów Docker"""
     return render_template('docker_web.html')
 
+@app.route('/api/web-projects', methods=['GET'])
+def api_web_projects():
+    """Zwraca listę projektów webowych"""
+    try:
+        # Importuj moduł web_projects
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from evodev import web_projects
+        
+        projects = web_projects.list_projects()
+        return jsonify({"success": True, "projects": projects})
+    except Exception as e:
+        logger.error(f"Błąd podczas pobierania listy projektów: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/web-projects', methods=['POST'])
+def api_create_web_project():
+    """Tworzy nowy projekt webowy"""
+    try:
+        # Importuj moduł web_projects
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from evodev import web_projects
+        
+        data = request.json
+        name = data.get('name', '')
+        project_type = data.get('type', 'static')
+        port = data.get('port', 8088)
+        
+        if not name:
+            return jsonify({"success": False, "error": "Nazwa projektu jest wymagana"})
+        
+        success, message = web_projects.create_and_deploy_project(
+            name=name,
+            project_type=project_type,
+            port=port
+        )
+        
+        return jsonify({"success": success, "message": message})
+    except Exception as e:
+        logger.error(f"Błąd podczas tworzenia projektu: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/web-projects/<project_name>/action', methods=['POST'])
+def api_web_project_action(project_name):
+    """Wykonuje akcję na projekcie webowym (start, stop, remove)"""
+    try:
+        # Importuj moduł web_projects
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from evodev import web_projects
+        
+        data = request.json
+        action = data.get('action', '')
+        
+        if not action or action not in ['start', 'stop', 'remove']:
+            return jsonify({"success": False, "error": "Nieprawidłowa akcja"})
+        
+        project = web_projects.get_project(project_name)
+        if not project:
+            return jsonify({"success": False, "error": f"Projekt {project_name} nie istnieje"})
+        
+        if action == 'start':
+            success = project.start()
+        elif action == 'stop':
+            success = project.stop()
+        elif action == 'remove':
+            success = project.remove()
+        
+        if success:
+            return jsonify({"success": True, "message": f"Akcja {action} została wykonana na projekcie {project_name}"})
+        else:
+            return jsonify({"success": False, "error": f"Nie udało się wykonać akcji {action} na projekcie {project_name}"})
+    except Exception as e:
+        logger.error(f"Błąd podczas wykonywania akcji na projekcie: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/web-projects')
+def web_projects_view():
+    """Strona z zarządzaniem projektami webowymi"""
+    return render_template('web_projects.html')
+
 @app.route('/api/llm/token/status')
 def api_llm_token_status():
     """Sprawdza czy token LLM jest ustawiony"""
