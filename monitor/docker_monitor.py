@@ -8,6 +8,7 @@ import threading
 import subprocess
 import docker
 from datetime import datetime
+import re
 
 logger = logging.getLogger('evodev-monitor')
 
@@ -264,6 +265,84 @@ def get_request_stats():
             "request_types": [],
             "status_codes": []
         }
+
+def get_container_web_interfaces():
+    """Get information about web interfaces for Docker containers"""
+    try:
+        client = docker.from_env()
+        containers = client.containers.list()
+        
+        web_interfaces = []
+        
+        for container in containers:
+            try:
+                container_info = client.api.inspect_container(container.id)
+                ports = container_info['NetworkSettings']['Ports']
+                
+                # Sprawdź, czy kontener ma otwarte porty webowe
+                web_ports = []
+                if ports:
+                    for port, bindings in ports.items():
+                        if bindings:
+                            port_number = port.split('/')[0]
+                            # Sprawdź, czy to potencjalnie port webowy (80, 8080, 3000, 443, etc.)
+                            if port_number in ['80', '8080', '3000', '443', '4000', '5000', '8000', '8888', '9000']:
+                                host_port = bindings[0]['HostPort']
+                                protocol = 'https' if port_number == '443' else 'http'
+                                web_ports.append({
+                                    'container_port': port_number,
+                                    'host_port': host_port,
+                                    'url': f"{protocol}://localhost:{host_port}"
+                                })
+                
+                # Sprawdź, czy kontener ma etykietę wskazującą na interfejs webowy
+                labels = container_info['Config']['Labels']
+                is_web_app = False
+                app_type = None
+                
+                if labels:
+                    if 'com.docker.compose.service' in labels:
+                        service_name = labels['com.docker.compose.service']
+                        if any(web_app in service_name.lower() for web_app in ['web', 'ui', 'app', 'frontend', 'dashboard', 'chat', 'rocket']):
+                            is_web_app = True
+                            app_type = service_name
+                
+                # Sprawdź nazwę kontenera, czy wskazuje na aplikację webową
+                container_name = container.name.lower()
+                if any(web_app in container_name for web_app in ['web', 'ui', 'app', 'frontend', 'dashboard', 'chat', 'rocket']):
+                    is_web_app = True
+                    app_type = app_type or re.sub(r'[^a-zA-Z0-9]', '', container_name)
+                
+                if web_ports or is_web_app:
+                    web_interfaces.append({
+                        'id': container.id,
+                        'name': container.name,
+                        'status': container.status,
+                        'web_ports': web_ports,
+                        'is_web_app': is_web_app,
+                        'app_type': app_type,
+                        'image': container.image.tags[0] if container.image.tags else str(container.image.id)
+                    })
+            
+            except Exception as e:
+                logger.error(f"Error getting web interface info for container {container.name}: {str(e)}")
+        
+        return web_interfaces
+    
+    except Exception as e:
+        logger.error(f"Error getting container web interfaces: {str(e)}")
+        return []
+
+def get_container_logs(container_id, lines=100):
+    """Get logs for a specific Docker container"""
+    try:
+        client = docker.from_env()
+        container = client.containers.get(container_id)
+        logs = container.logs(tail=lines).decode('utf-8')
+        return logs
+    except Exception as e:
+        logger.error(f"Error getting container logs: {str(e)}")
+        return f"Error retrieving logs: {str(e)}"
 
 # Start monitoring when module is imported
 if __name__ != "__main__":

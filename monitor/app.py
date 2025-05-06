@@ -513,24 +513,52 @@ def docker_requests_view():
     """Strona z widokiem requestów Docker"""
     return render_template('docker_requests.html')
 
-@app.route('/api/docker/requests/recent', methods=['GET'])
+@app.route('/api/docker/recent-requests')
 def api_docker_recent_requests():
     """Zwraca ostatnie requesty Docker"""
-    if not has_docker_monitor:
-        return jsonify({"success": False, "message": "Docker request monitoring not available"}), 404
-    
-    limit = request.args.get('limit', 100, type=int)
-    requests = docker_monitor.get_recent_requests(limit)
-    return jsonify({"success": True, "requests": requests})
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        requests_data = docker_monitor.get_recent_requests(limit)
+        return jsonify({"success": True, "requests": requests_data})
+    except Exception as e:
+        logger.error(f"Error getting Docker requests: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
 
-@app.route('/api/docker/requests/stats', methods=['GET'])
+@app.route('/api/docker/request-stats')
 def api_docker_request_stats():
     """Zwraca statystyki requestów Docker"""
-    if not has_docker_monitor:
-        return jsonify({"success": False, "message": "Docker request monitoring not available"}), 404
-    
-    stats = docker_monitor.get_request_stats()
-    return jsonify({"success": True, "stats": stats})
+    try:
+        stats = docker_monitor.get_request_stats()
+        return jsonify({"success": True, "stats": stats})
+    except Exception as e:
+        logger.error(f"Error getting Docker request stats: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/docker/web-interfaces')
+def api_docker_web_interfaces():
+    """Zwraca informacje o interfejsach webowych kontenerów Docker"""
+    try:
+        web_interfaces = docker_monitor.get_container_web_interfaces()
+        return jsonify({"success": True, "web_interfaces": web_interfaces})
+    except Exception as e:
+        logger.error(f"Error getting Docker web interfaces: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/docker/container-logs/<container_id>')
+def api_docker_container_logs(container_id):
+    """Zwraca logi dla konkretnego kontenera Docker"""
+    try:
+        lines = request.args.get('lines', 100, type=int)
+        logs = docker_monitor.get_container_logs(container_id, lines)
+        return jsonify({"success": True, "logs": logs})
+    except Exception as e:
+        logger.error(f"Error getting container logs: {str(e)}")
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/docker-web')
+def docker_web_view():
+    """Strona z widokiem interfejsów webowych kontenerów Docker"""
+    return render_template('docker_web.html')
 
 @app.route('/api/llm/token/status')
 def api_llm_token_status():

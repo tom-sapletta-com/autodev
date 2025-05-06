@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoDev - Interfejsy Webowe Kontenerów</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-bottom: 30px;
+        }
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .container-fluid {
+            max-width: 95%;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .badge-running {
+            background-color: #28a745;
+            color: white;
+        }
+        .badge-exited, .badge-stopped {
+            background-color: #dc3545;
+            color: white;
+        }
+        .badge-restarting {
+            background-color: #fd7e14;
+            color: white;
+        }
+        .badge-created, .badge-paused {
+            background-color: #6c757d;
+            color: white;
+        }
+        .iframe-container {
+            width: 100%;
+            height: 300px;
+            overflow: hidden;
+            border-radius: 0 0 5px 5px;
+            position: relative;
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .iframe-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+        }
+        .iframe-overlay button {
+            margin-top: 15px;
+        }
+        .logs-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #212529;
+            color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        .container-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .container-image {
+            max-width: 100%;
+            height: 40px;
+            object-fit: contain;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 50px 0;
+        }
+        .empty-state i {
+            font-size: 4rem;
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container-fluid">
+            <h1>Interfejsy Webowe Kontenerów Docker</h1>
+            <p class="lead">Podgląd i zarządzanie aplikacjami webowymi w kontenerach Docker</p>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <a href="/" class="btn btn-secondary">← Powrót do dashboard</a>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="refreshBtn">
+                        <i class="bi bi-arrow-clockwise"></i> Odśwież dane
+                    </button>
+                    <button class="btn btn-outline-primary" id="autoRefreshBtn">
+                        Auto-odświeżanie: <span id="autoRefreshStatus">Wyłączone</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="webInterfacesContainer" class="row">
+            <!-- Tutaj będą dynamicznie wstawiane karty kontenerów -->
+            <div class="col-12 empty-state">
+                <i class="bi bi-hourglass"></i>
+                <h3>Ładowanie kontenerów...</h3>
+                <p>Proszę czekać, trwa pobieranie informacji o kontenerach Docker.</p>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-primary btn-lg rounded-circle refresh-btn" id="quickRefreshBtn">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+
+    <!-- Modal do wyświetlania logów -->
+    <div class="modal fade" id="logsModal" tabindex="-1" aria-labelledby="logsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logsModalLabel">Logi kontenera</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="logs-container" id="containerLogs">
+                        Ładowanie logów...
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementy DOM
+            const webInterfacesContainer = document.getElementById('webInterfacesContainer');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const quickRefreshBtn = document.getElementById('quickRefreshBtn');
+            const autoRefreshBtn = document.getElementById('autoRefreshBtn');
+            const autoRefreshStatus = document.getElementById('autoRefreshStatus');
+            const logsModal = new bootstrap.Modal(document.getElementById('logsModal'));
+            const containerLogs = document.getElementById('containerLogs');
+            
+            // Zmienne
+            let isAutoRefreshing = false;
+            let autoRefreshInterval;
+            
+            // Funkcja ładująca dane o interfejsach webowych
+            function loadWebInterfaces() {
+                fetch('/api/docker/web-interfaces')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateWebInterfacesUI(data.web_interfaces);
+                        } else {
+                            console.error('Błąd podczas pobierania danych:', data.error);
+                            showError('Nie udało się pobrać informacji o kontenerach Docker.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Błąd fetch:', error);
+                        showError('Wystąpił błąd podczas komunikacji z serwerem.');
+                    });
+            }
+            
+            // Funkcja aktualizująca UI z interfejsami webowymi
+            function updateWebInterfacesUI(webInterfaces) {
+                webInterfacesContainer.innerHTML = '';
+                
+                if (webInterfaces.length === 0) {
+                    webInterfacesContainer.innerHTML = `
+                        <div class="col-12 empty-state">
+                            <i class="bi bi-cloud-slash"></i>
+                            <h3>Brak aktywnych interfejsów webowych</h3>
+                            <p>Nie znaleziono kontenerów Docker z interfejsami webowymi.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                webInterfaces.forEach(container => {
+                    const card = document.createElement('div');
+                    card.className = 'col-md-6 col-lg-4 mb-4';
+                    
+                    const statusBadge = getStatusBadge(container.status);
+                    const hasWebInterface = container.web_ports && container.web_ports.length > 0;
+                    
+                    let webInterfaceHtml = '';
+                    if (hasWebInterface && container.status === 'running') {
+                        const primaryPort = container.web_ports[0];
+                        webInterfaceHtml = `
+                            <div class="iframe-container">
+                                <iframe src="${primaryPort.url}" title="${container.name} interface" sandbox="allow-same-origin allow-scripts"></iframe>
+                                <div class="iframe-overlay">
+                                    <h4>${container.name}</h4>
+                                    <p>Interfejs webowy dostępny na porcie ${primaryPort.host_port}</p>
+                                    <a href="${primaryPort.url}" target="_blank" class="btn btn-primary">
+                                        <i class="bi bi-box-arrow-up-right"></i> Otwórz w nowym oknie
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    } else if (container.status !== 'running') {
+                        webInterfaceHtml = `
+                            <div class="iframe-container">
+                                <div class="iframe-overlay bg-danger">
+                                    <i class="bi bi-exclamation-triangle-fill" style="font-size: 2rem;"></i>
+                                    <h4>Kontener nie jest uruchomiony</h4>
+                                    <p>Status: ${container.status}</p>
+                                    <button class="btn btn-light btn-sm view-logs" data-container-id="${container.id}">
+                                        <i class="bi bi-journal-text"></i> Zobacz logi
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        webInterfaceHtml = `
+                            <div class="iframe-container">
+                                <div class="iframe-overlay bg-secondary">
+                                    <i class="bi bi-question-circle-fill" style="font-size: 2rem;"></i>
+                                    <h4>Brak wykrytego interfejsu webowego</h4>
+                                    <p>Kontener nie ma wykrytych portów webowych</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    card.innerHTML = `
+                        <div class="card">
+                            <div class="card-header">
+                                <div>
+                                    <h5 class="card-title mb-0">${container.name}</h5>
+                                    <small class="text-muted">${shortenId(container.id)}</small>
+                                </div>
+                                <span class="badge ${statusBadge}">${container.status}</span>
+                            </div>
+                            ${webInterfaceHtml}
+                            <div class="card-footer">
+                                <div class="container-actions">
+                                    <button class="btn btn-outline-secondary btn-sm view-logs" data-container-id="${container.id}">
+                                        <i class="bi bi-journal-text"></i> Logi
+                                    </button>
+                                    ${hasWebInterface ? 
+                                        `<a href="${container.web_ports[0].url}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-box-arrow-up-right"></i> Otwórz
+                                        </a>` : ''
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    webInterfacesContainer.appendChild(card);
+                });
+                
+                // Dodaj event listeners dla przycisków logów
+                document.querySelectorAll('.view-logs').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const containerId = this.getAttribute('data-container-id');
+                        showContainerLogs(containerId);
+                    });
+                });
+                
+                // Dodaj event listeners dla iframe overlays
+                document.querySelectorAll('.iframe-overlay').forEach(overlay => {
+                    overlay.addEventListener('click', function(e) {
+                        // Zatrzymaj propagację tylko jeśli kliknięcie nie było na przycisku
+                        if (!e.target.closest('a') && !e.target.closest('button')) {
+                            const iframe = this.parentElement.querySelector('iframe');
+                            if (iframe) {
+                                this.style.display = 'none';
+                            }
+                        }
+                    });
+                });
+            }
+            
+            // Funkcja pokazująca logi kontenera
+            function showContainerLogs(containerId) {
+                containerLogs.innerHTML = 'Ładowanie logów...';
+                document.getElementById('logsModalLabel').textContent = 'Ładowanie logów kontenera...';
+                logsModal.show();
+                
+                fetch(`/api/docker/container-logs/${containerId}?lines=200`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            containerLogs.textContent = data.logs || 'Brak dostępnych logów';
+                            // Aktualizuj tytuł modalu z nazwą kontenera
+                            const containerCard = document.querySelector(`[data-container-id="${containerId}"]`).closest('.card');
+                            const containerName = containerCard.querySelector('.card-title').textContent;
+                            document.getElementById('logsModalLabel').textContent = `Logi kontenera: ${containerName}`;
+                        } else {
+                            containerLogs.innerHTML = `<span class="text-danger">Błąd: ${data.error}</span>`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Błąd fetch:', error);
+                        containerLogs.innerHTML = `<span class="text-danger">Wystąpił błąd podczas pobierania logów: ${error}</span>`;
+                    });
+            }
+            
+            // Funkcja włączająca/wyłączająca auto-odświeżanie
+            function toggleAutoRefresh() {
+                if (isAutoRefreshing) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshStatus.textContent = 'Wyłączone';
+                    isAutoRefreshing = false;
+                } else {
+                    loadWebInterfaces();
+                    autoRefreshInterval = setInterval(loadWebInterfaces, 5000);
+                    autoRefreshStatus.textContent = 'Włączone (5s)';
+                    isAutoRefreshing = true;
+                }
+            }
+            
+            // Funkcja pokazująca błąd
+            function showError(message) {
+                webInterfacesContainer.innerHTML = `
+                    <div class="col-12 empty-state">
+                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                        <h3>Wystąpił błąd</h3>
+                        <p>${message}</p>
+                        <button class="btn btn-primary mt-3" onclick="loadWebInterfaces()">
+                            <i class="bi bi-arrow-clockwise"></i> Spróbuj ponownie
+                        </button>
+                    </div>
+                `;
+            }
+            
+            // Funkcja zwracająca klasę CSS dla statusu
+            function getStatusBadge(status) {
+                switch (status) {
+                    case 'running': return 'badge-running';
+                    case 'exited': return 'badge-exited';
+                    case 'stopped': return 'badge-stopped';
+                    case 'restarting': return 'badge-restarting';
+                    default: return 'badge-secondary';
+                }
+            }
+            
+            // Funkcja skracająca ID kontenera
+            function shortenId(id) {
+                return id.substring(0, 12);
+            }
+            
+            // Event listenery
+            refreshBtn.addEventListener('click', loadWebInterfaces);
+            quickRefreshBtn.addEventListener('click', loadWebInterfaces);
+            autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
+            
+            // Załaduj dane przy starcie
+            loadWebInterfaces();
+        });
+    </script>
+</body>
+</html>
