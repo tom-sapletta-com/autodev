@@ -1,4 +1,5 @@
 ollama
+monitor.pid
 data
 .run
 .idea
