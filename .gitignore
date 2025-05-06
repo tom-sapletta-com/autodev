@@ -1,6 +1,7 @@
 ollama
 monitor.pid
 monitor.db
+monitor/monitor.db
 TODO.txt
 data
 .run
