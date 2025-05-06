@@ -211,7 +211,7 @@ __pycache__/
 .venv
 venv
 .env
-docs
+
 # C extensions
 *.so
 
