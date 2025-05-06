@@ -4,10 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evodev"
-version = "0.1.13"
+version = "0.1.14"
 description = "Automated Development Environment"
 authors = [{ name = "Tom Sapletta" }]
 requires-python = ">=3.8"
+readme = "README.md"
 
 [project.urls]
 Documentation = "https://github.com/tom-sapletta-com/evodev/blob/main/README.md"
