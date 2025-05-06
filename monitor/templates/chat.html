@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoDev - Chat AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-bottom: 30px;
+        }
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .container-fluid {
+            max-width: 95%;
+        }
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: white;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #d1ecf1;
+            margin-left: auto;
+            text-align: right;
+        }
+        .system-message {
+            background-color: #f8d7da;
+        }
+        .ai-message {
+            background-color: #d4edda;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .token-container {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeeba;
+        }
+        .token-container.hidden {
+            display: none;
+        }
+        .email-status {
+            background-color: #e2f0d9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #c5e0b4;
+        }
+        .email-status.not-configured {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 0.2em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container-fluid">
+            <h1>EvoDev Chat AI</h1>
+            <p class="lead">System ewolucji i wsparcia EvoDev</p>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <a href="/" class="btn btn-secondary">← Powrót do dashboard</a>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-info" id="checkEmailStatusBtn">Sprawdź status email</button>
+            </div>
+        </div>
+
+        <div id="emailStatusContainer" style="display: none;" class="mb-3">
+            <div id="emailStatus" class="email-status">
+                <h5>Status systemu email</h5>
+                <div id="emailStatusContent">
+                    <p>Ładowanie statusu...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="token-container" id="tokenContainer">
+            <h4>Aktywacja systemu ewolucji</h4>
+            <p>Aby aktywować pełne możliwości systemu EvoDev, potrzebny jest token API do modelu językowego.</p>
+            
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="btn-group w-100" role="group" aria-label="Dostawcy LLM">
+                        <button type="button" class="btn btn-outline-primary" onclick="showProviderTab('openai')">OpenAI</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="showProviderTab('anthropic')">Anthropic</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="showProviderTab('ollama')">Ollama (lokalne)</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="provider-tabs">
+                <div id="openai-tab" class="provider-tab">
+                    <h5>Konfiguracja OpenAI</h5>
+                    <p>Token API OpenAI możesz uzyskać na stronie: <a href="{{ openai_link }}" target="_blank">{{ openai_link }}</a></p>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="openaiTokenInput" placeholder="Wprowadź token API OpenAI">
+                        <button class="btn btn-primary" onclick="saveToken('openai')">Zapisz token</button>
+                    </div>
+                </div>
+                
+                <div id="anthropic-tab" class="provider-tab" style="display: none;">
+                    <h5>Konfiguracja Anthropic</h5>
+                    <p>Token API Anthropic możesz uzyskać na stronie: <a href="{{ anthropic_link }}" target="_blank">{{ anthropic_link }}</a></p>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="anthropicTokenInput" placeholder="Wprowadź token API Anthropic">
+                        <button class="btn btn-primary" onclick="saveToken('anthropic')">Zapisz token</button>
+                    </div>
+                </div>
+                
+                <div id="ollama-tab" class="provider-tab" style="display: none;">
+                    <h5>Konfiguracja Ollama</h5>
+                    <p>Ollama to lokalne API do modeli językowych. Możesz skonfigurować połączenie z lokalnym serwerem Ollama:</p>
+                    <div class="mb-3">
+                        <label for="ollamaUrlInput" class="form-label">URL serwera Ollama</label>
+                        <input type="text" class="form-control" id="ollamaUrlInput" value="http://ollama:11434" placeholder="http://ollama:11434">
+                    </div>
+                    <div class="mb-3">
+                        <label for="ollamaModelInput" class="form-label">Model</label>
+                        <select class="form-control" id="ollamaModelInput">
+                            <option value="llama2">Llama 2</option>
+                            <option value="mistral">Mistral</option>
+                            <option value="gemma">Gemma</option>
+                            <option value="phi">Phi</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveToken('ollama')">Zapisz konfigurację</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="message system-message">
+                <strong>System:</strong> Witaj w systemie EvoDev! Jestem asystentem, który pomoże Ci w korzystaniu z systemu.
+            </div>
+            <div class="message ai-message">
+                <strong>AI:</strong> Proszę podaj token API do modelu językowego, aby aktywować pełne możliwości systemu EvoDev. Token możesz uzyskać na stronie: <a href="{{ partner_link }}" target="_blank">{{ partner_link }}</a>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <input type="text" class="form-control" id="messageInput" placeholder="Wpisz wiadomość...">
+            <button class="btn btn-primary" id="sendBtn">Wyślij</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const tokenContainer = document.getElementById('tokenContainer');
+            
+            // Sprawdź czy token jest już zapisany
+            fetch('/api/llm/token/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.token_set) {
+                        tokenContainer.classList.add('hidden');
+                        addMessage('system', `Token API dla ${data.provider} został już skonfigurowany. System EvoDev jest w pełni aktywny.`);
+                    }
+                });
+            
+            // Obsługa wysyłania wiadomości
+            sendBtn.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            function sendMessage() {
+                const message = messageInput.value.trim();
+                
+                if (!message) return;
+                
+                addMessage('user', message);
+                messageInput.value = '';
+                
+                // Dodaj animację ładowania
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message ai-message';
+                loadingDiv.id = 'loadingMessage';
+                loadingDiv.innerHTML = '<strong>AI:</strong> <span class="loading-spinner"></span> Przetwarzanie...';
+                chatContainer.appendChild(loadingDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                fetch('/api/chat/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Usuń animację ładowania
+                    const loadingMessage = document.getElementById('loadingMessage');
+                    if (loadingMessage) {
+                        chatContainer.removeChild(loadingMessage);
+                    }
+                    
+                    if (data.error) {
+                        addMessage('system', 'Błąd: ' + data.error);
+                    } else {
+                        // Sprawdź, czy odpowiedź zawiera informacje o operacjach email
+                        if (data.response.includes('email') && data.response.includes('wysłan')) {
+                            // Sprawdź status email
+                            checkEmailStatus();
+                        }
+                        
+                        // Formatuj odpowiedź - zamień markdown na HTML
+                        let formattedResponse = data.response
+                            .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>') // code blocks
+                            .replace(/`([^`]+)`/g, '<code>$1</code>') // inline code
+                            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // bold
+                            .replace(/\*([^*]+)\*/g, '<em>$1</em>') // italic
+                            .replace(/\n/g, '<br>'); // newlines
+                        
+                        addMessage('ai', formattedResponse);
+                    }
+                })
+                .catch(error => {
+                    // Usuń animację ładowania
+                    const loadingMessage = document.getElementById('loadingMessage');
+                    if (loadingMessage) {
+                        chatContainer.removeChild(loadingMessage);
+                    }
+                    
+                    addMessage('system', 'Wystąpił błąd podczas komunikacji z serwerem: ' + error);
+                });
+            }
+            
+            function addMessage(type, content) {
+                const messageDiv = document.createElement('div');
+                let className = 'message ';
+                let prefix = '';
+                
+                switch(type) {
+                    case 'user':
+                        className += 'user-message';
+                        prefix = '<strong>Ty:</strong> ';
+                        break;
+                    case 'ai':
+                        className += 'ai-message';
+                        prefix = '<strong>AI:</strong> ';
+                        break;
+                    case 'system':
+                        className += 'system-message';
+                        prefix = '<strong>System:</strong> ';
+                        break;
+                }
+                
+                messageDiv.className = className;
+                messageDiv.innerHTML = prefix + content;
+                
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        });
+        
+        // Funkcja zapisująca token API
+        function saveToken(provider) {
+            let token = '';
+            let model = '';
+            let url = '';
+            
+            switch(provider) {
+                case 'openai':
+                    token = document.getElementById('openaiTokenInput').value.trim();
+                    if (!token) {
+                        alert('Proszę wprowadzić prawidłowy token API OpenAI');
+                        return;
+                    }
+                    break;
+                case 'anthropic':
+                    token = document.getElementById('anthropicTokenInput').value.trim();
+                    if (!token) {
+                        alert('Proszę wprowadzić prawidłowy token API Anthropic');
+                        return;
+                    }
+                    break;
+                case 'ollama':
+                    url = document.getElementById('ollamaUrlInput').value.trim();
+                    model = document.getElementById('ollamaModelInput').value;
+                    if (!url) {
+                        alert('Proszę wprowadzić prawidłowy URL serwera Ollama');
+                        return;
+                    }
+                    break;
+            }
+            
+            fetch('/api/llm/token/set', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    provider: provider,
+                    token: token,
+                    url: url,
+                    model: model
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('tokenContainer').classList.add('hidden');
+                    
+                    // Dodaj wiadomość o konfiguracji
+                    const chatContainer = document.getElementById('chatContainer');
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message system-message';
+                    messageDiv.innerHTML = `<strong>System:</strong> Konfiguracja ${provider} została zapisana. System EvoDev jest teraz w pełni aktywny.`;
+                    chatContainer.appendChild(messageDiv);
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                } else {
+                    alert('Wystąpił błąd podczas zapisywania konfiguracji: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Wystąpił błąd podczas zapisywania konfiguracji: ' + error);
+            });
+        }
+
+        // Funkcja sprawdzająca status email
+        function checkEmailStatus() {
+            fetch('/api/email/status')
+                .then(response => response.json())
+                .then(data => {
+                    const emailStatusContainer = document.getElementById('emailStatusContainer');
+                    const emailStatus = document.getElementById('emailStatus');
+                    const emailStatusContent = document.getElementById('emailStatusContent');
+                    
+                    if (data.configured) {
+                        emailStatus.classList.remove('not-configured');
+                        emailStatusContent.innerHTML = `<p>Email został poprawnie skonfigurowany.</p>`;
+                    } else {
+                        emailStatus.classList.add('not-configured');
+                        emailStatusContent.innerHTML = `<p>Email nie został skonfigurowany. Proszę sprawdzić ustawienia.</p>`;
+                    }
+                    
+                    emailStatusContainer.style.display = 'block';
+                })
+                .catch(error => {
+                    alert('Wystąpił błąd podczas sprawdzania statusu email: ' + error);
+                });
+        }
+
+        // Funkcja wysyłająca email
+        function sendEmail() {
+            const emailSubject = document.getElementById('emailSubjectInput').value.trim();
+            const emailBody = document.getElementById('emailBodyInput').value.trim();
+            
+            if (!emailSubject || !emailBody) {
+                alert('Proszę wprowadzić temat i treść emaila');
+                return;
+            }
+            
+            fetch('/api/email/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    subject: emailSubject,
+                    body: emailBody
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Email został wysłany pomyślnie');
+                } else {
+                    alert('Wystąpił błąd podczas wysyłania emaila: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Wystąpił błąd podczas wysyłania emaila: ' + error);
+            });
+        }
+
+        // Dodaj event listener do przycisku sprawdzającego status email
+        document.getElementById('checkEmailStatusBtn').addEventListener('click', checkEmailStatus);
+        
+        // Funkcja wyświetlająca kartę dostawcy
+        function showProviderTab(provider) {
+            const providerTabs = document.querySelectorAll('.provider-tab');
+            providerTabs.forEach(tab => {
+                tab.style.display = 'none';
+            });
+            document.getElementById(`${provider}-tab`).style.display = 'block';
+        }
+    </script>
+</body>
+</html>

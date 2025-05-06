@@ -1,7 +1,7 @@
 # EvoDev - Ewolucyjny Asystent dla Programistów
 
 <div align="center">
-  <img src="docs/images/evodev-logo.png" alt="EvoDev Logo" width="300">
+  <img src="docs/images/evodev-logo.svg" alt="EvoDev Logo" width="300">
   <br>
   <em>Automatyczna instalacja, konfiguracja i rozwój umiejętności dla środowisk programistycznych</em>
 </div>
@@ -16,6 +16,9 @@
 - [💡 Funkcje](#kluczowe-funkcje)
 - [📚 Dokumentacja](#dokumentacja)
 - [🛠️ Rozwój](#rozszerzanie-systemu-o-nowe-skille)
+
+
+![alt text](docs/images/docker.png)
 
 ## Przegląd
 

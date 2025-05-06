@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoDev Monitor - Usługi Docker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-bottom: 30px;
+        }
+        .navbar {
+            margin-bottom: 20px;
+            background-color: #343a40;
+        }
+        .container-fluid {
+            max-width: 95%;
+        }
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .container-card {
+            height: 250px;
+            margin-bottom: 20px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .container-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+        .card-header {
+            font-weight: bold;
+            padding: 10px;
+        }
+        .card-footer {
+            padding: 8px;
+            font-size: 0.9em;
+        }
+        .status-running {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-stopped {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-restarting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-created {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .logs-container {
+            font-family: monospace;
+            font-size: 0.8em;
+            max-height: 100px;
+            overflow-y: auto;
+            background-color: #f5f5f5;
+            padding: 8px;
+            border-radius: 3px;
+        }
+        .refresh-section {
+            margin-bottom: 20px;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        @media (min-width: 1200px) {
+            .grid-container {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        #refreshStatus {
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+        .web-preview {
+            width: 100%;
+            height: 150px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container-fluid">
+            <h1>EvoDev Monitor - Usługi Docker</h1>
+            <p class="lead">System monitorowania kontenerów Docker</p>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <a href="/" class="btn btn-secondary">← Powrót do dashboard</a>
+            </div>
+            <div class="col-md-6 text-end refresh-section">
+                <div class="form-check form-switch d-inline-block me-3">
+                    <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                    <label class="form-check-label" for="autoRefresh">Automatyczne odświeżanie (5s)</label>
+                </div>
+                <button id="refreshButton" class="btn btn-primary">Odśwież</button>
+                <span id="refreshStatus"></span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div id="containerGrid" class="grid-container">
+                    <!-- Tu będą dynamicznie dodawane karty kontenerów w siatce 4x4 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const containerGrid = document.getElementById('containerGrid');
+            const refreshButton = document.getElementById('refreshButton');
+            const autoRefreshCheckbox = document.getElementById('autoRefresh');
+            const refreshStatus = document.getElementById('refreshStatus');
+            
+            let refreshInterval;
+            
+            // Funkcja do ładowania danych kontenerów
+            function loadContainers() {
+                fetch('/api/docker')
+                    .then(response => response.json())
+                    .then(containers => {
+                        containerGrid.innerHTML = '';
+                        
+                        // Filtruj kontenery - nie pokazuj niezainstalowanych
+                        const filteredContainers = containers.filter(container => {
+                            // Pokaż tylko zainstalowane kontenery
+                            return container.status !== 'not_installed';
+                        });
+                        
+                        if (filteredContainers.length === 0) {
+                            containerGrid.innerHTML = '<div class="alert alert-info">Brak aktywnych kontenerów Docker</div>';
+                            return;
+                        }
+                        
+                        filteredContainers.forEach(container => {
+                            // Utwórz kartę kontenera
+                            const containerCard = document.createElement('div');
+                            containerCard.className = `card container-card status-${container.status_type}`;
+                            
+                            // Utwórz nagłówek karty
+                            const cardHeader = document.createElement('div');
+                            cardHeader.className = 'card-header';
+                            cardHeader.textContent = container.name;
+                            
+                            // Utwórz treść karty
+                            const cardBody = document.createElement('div');
+                            cardBody.className = 'card-body';
+                            
+                            const statusInfo = document.createElement('p');
+                            statusInfo.className = 'mb-2';
+                            statusInfo.innerHTML = `<strong>Status:</strong> ${container.status}`;
+                            
+                            const imageInfo = document.createElement('p');
+                            imageInfo.className = 'mb-2';
+                            imageInfo.innerHTML = `<strong>Obraz:</strong> ${container.image}`;
+                            
+                            const portsInfo = document.createElement('p');
+                            portsInfo.className = 'mb-2';
+                            portsInfo.innerHTML = `<strong>Porty:</strong> ${container.ports || 'brak'}`;
+                            
+                            cardBody.appendChild(statusInfo);
+                            cardBody.appendChild(imageInfo);
+                            cardBody.appendChild(portsInfo);
+                            
+                            // Sprawdź czy kontener ma porty HTTP i jest uruchomiony
+                            const hasWebInterface = container.status_type === 'running' && 
+                                                  container.ports && 
+                                                  (container.ports.includes('80/tcp') || 
+                                                   container.ports.includes('8080/tcp') ||
+                                                   container.ports.includes('3000/tcp') ||
+                                                   container.ports.includes('4000/tcp') ||
+                                                   container.ports.includes('8000/tcp') ||
+                                                   container.ports.match(/\d+->80\/tcp/) ||
+                                                   container.ports.match(/\d+->8080\/tcp/) ||
+                                                   container.ports.match(/\d+->3000\/tcp/) ||
+                                                   container.ports.match(/\d+->4000\/tcp/) ||
+                                                   container.ports.match(/\d+->8000\/tcp/));
+                            
+                            // Jeśli kontener ma interfejs webowy i jest uruchomiony, pokaż iframe
+                            if (hasWebInterface) {
+                                // Wyodrębnij port z opisu portów
+                                let webPort = '';
+                                const portMatch = container.ports.match(/(\d+)(?:->)?(?:80|8080|3000|4000|8000)\/tcp/);
+                                if (portMatch) {
+                                    webPort = portMatch[1];
+                                }
+                                
+                                const webUrl = `http://localhost:${webPort}`;
+                                
+                                // Dodaj przycisk do otwarcia w nowym oknie
+                                const openButton = document.createElement('button');
+                                openButton.className = 'btn btn-primary btn-sm mb-3';
+                                openButton.textContent = 'Otwórz w nowym oknie';
+                                openButton.onclick = function() {
+                                    window.open(webUrl, '_blank');
+                                };
+                                cardBody.appendChild(openButton);
+                                
+                                // Dodaj iframe z aplikacją webową
+                                const iframe = document.createElement('iframe');
+                                iframe.src = webUrl;
+                                iframe.className = 'web-preview';
+                                iframe.style.width = '100%';
+                                iframe.style.height = '150px';
+                                iframe.style.border = '1px solid #ddd';
+                                iframe.style.borderRadius = '4px';
+                                cardBody.appendChild(iframe);
+                            } 
+                            // Jeśli kontener nie działa, pokaż logi z błędami
+                            else if (container.status_type !== 'running') {
+                                const logsTitle = document.createElement('p');
+                                logsTitle.className = 'mb-1 mt-3';
+                                logsTitle.innerHTML = '<strong>Ostatnie logi:</strong>';
+                                
+                                const logsContainer = document.createElement('div');
+                                logsContainer.className = 'logs-container';
+                                logsContainer.textContent = container.logs || 'Brak logów';
+                                
+                                cardBody.appendChild(logsTitle);
+                                cardBody.appendChild(logsContainer);
+                            }
+                            
+                            // Utwórz stopkę karty
+                            const cardFooter = document.createElement('div');
+                            cardFooter.className = 'card-footer text-muted';
+                            cardFooter.innerHTML = `<small>ID: ${container.id}</small>`;
+                            
+                            // Złóż wszystkie części karty
+                            containerCard.appendChild(cardHeader);
+                            containerCard.appendChild(cardBody);
+                            containerCard.appendChild(cardFooter);
+                            
+                            // Dodaj kartę do siatki
+                            containerGrid.appendChild(containerCard);
+                        });
+                        
+                        const now = new Date();
+                        refreshStatus.textContent = `Ostatnie odświeżenie: ${now.toLocaleTimeString()}`;
+                    })
+                    .catch(error => {
+                        console.error('Błąd ładowania danych kontenerów:', error);
+                        refreshStatus.textContent = 'Błąd ładowania danych!';
+                    });
+            }
+            
+            // Funkcja do obsługi automatycznego odświeżania
+            function setupAutoRefresh() {
+                if (autoRefreshCheckbox.checked) {
+                    refreshInterval = setInterval(loadContainers, 5000);
+                } else {
+                    clearInterval(refreshInterval);
+                }
+            }
+            
+            // Nasłuchuj kliknięcia przycisku odświeżania
+            refreshButton.addEventListener('click', loadContainers);
+            
+            // Nasłuchuj zmiany stanu automatycznego odświeżania
+            autoRefreshCheckbox.addEventListener('change', setupAutoRefresh);
+            
+            // Pierwsze załadowanie danych
+            loadContainers();
+            
+            // Ustaw automatyczne odświeżanie
+            setupAutoRefresh();
+        });
+    </script>
+</body>
+</html>

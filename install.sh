@@ -88,6 +88,15 @@ if ! command -v code-server &> /dev/null; then
     curl -fsSL https://code-server.dev/install.sh | sh
 fi
 
+# Instalacja nagłówków developerskich Pythona (Python development headers)
+if [[ $PM == "apt" ]]; then
+    $INSTALL python3.11-dev || $INSTALL python3-dev
+elif [[ $PM == "dnf" ]]; then
+    $INSTALL python3.11-devel || $INSTALL python3-devel
+elif [[ $PM == "pacman" ]]; then
+    $INSTALL python-pybind11 python python-pip
+fi
+
 # Instalacja zależności Pythona
 pip3 install -r requirements.txt
 

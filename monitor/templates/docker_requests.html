@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoDev - Monitor Requestów Docker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-bottom: 30px;
+        }
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .container-fluid {
+            max-width: 95%;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .table-responsive {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        .badge-get {
+            background-color: #28a745;
+            color: white;
+        }
+        .badge-post {
+            background-color: #007bff;
+            color: white;
+        }
+        .badge-put {
+            background-color: #fd7e14;
+            color: white;
+        }
+        .badge-delete {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status-200 {
+            color: #28a745;
+        }
+        .status-404 {
+            color: #fd7e14;
+        }
+        .status-500 {
+            color: #dc3545;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container-fluid">
+            <h1>Monitor Requestów Docker</h1>
+            <p class="lead">Monitorowanie komunikacji między kontenerami Docker w systemie EvoDev</p>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <a href="/" class="btn btn-secondary">← Powrót do dashboard</a>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="refreshBtn">
+                        <i class="bi bi-arrow-clockwise"></i> Odśwież dane
+                    </button>
+                    <button class="btn btn-outline-primary" id="autoRefreshBtn">
+                        Auto-odświeżanie: <span id="autoRefreshStatus">Wyłączone</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Interakcje między kontenerami</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="interactionsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Typy requestów i kody odpowiedzi</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <canvas id="requestTypesChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <canvas id="statusCodesChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Ostatnie requesty</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Czas</th>
+                                <th>Źródło</th>
+                                <th>Cel</th>
+                                <th>Typ</th>
+                                <th>Ścieżka</th>
+                                <th>Status</th>
+                                <th>Czas odpowiedzi (ms)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestsTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center">Ładowanie danych...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-primary btn-lg rounded-circle refresh-btn" id="quickRefreshBtn">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicjalizacja zmiennych
+            let interactionsChart = null;
+            let requestTypesChart = null;
+            let statusCodesChart = null;
+            let autoRefreshInterval = null;
+            let isAutoRefreshing = false;
+            
+            // Elementy DOM
+            const refreshBtn = document.getElementById('refreshBtn');
+            const quickRefreshBtn = document.getElementById('quickRefreshBtn');
+            const autoRefreshBtn = document.getElementById('autoRefreshBtn');
+            const autoRefreshStatus = document.getElementById('autoRefreshStatus');
+            const requestsTableBody = document.getElementById('requestsTableBody');
+            
+            // Funkcja ładująca dane
+            function loadData() {
+                // Pobierz ostatnie requesty
+                fetch('/api/docker/requests/recent')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateRequestsTable(data.requests);
+                        } else {
+                            requestsTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Błąd: ${data.message}</td></tr>`;
+                        }
+                    })
+                    .catch(error => {
+                        requestsTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Błąd: ${error}</td></tr>`;
+                    });
+                
+                // Pobierz statystyki
+                fetch('/api/docker/requests/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateCharts(data.stats);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Błąd podczas pobierania statystyk:', error);
+                    });
+            }
+            
+            // Funkcja aktualizująca tabelę requestów
+            function updateRequestsTable(requests) {
+                if (requests.length === 0) {
+                    requestsTableBody.innerHTML = '<tr><td colspan="7" class="text-center">Brak danych</td></tr>';
+                    return;
+                }
+                
+                let html = '';
+                requests.forEach(req => {
+                    const date = new Date(req.timestamp);
+                    const formattedDate = date.toLocaleString();
+                    
+                    let typeClass = '';
+                    switch(req.request_type) {
+                        case 'GET': typeClass = 'badge-get'; break;
+                        case 'POST': typeClass = 'badge-post'; break;
+                        case 'PUT': typeClass = 'badge-put'; break;
+                        case 'DELETE': typeClass = 'badge-delete'; break;
+                    }
+                    
+                    let statusClass = '';
+                    switch(req.status_code) {
+                        case 200: statusClass = 'status-200'; break;
+                        case 404: statusClass = 'status-404'; break;
+                        case 500: statusClass = 'status-500'; break;
+                    }
+                    
+                    html += `
+                        <tr>
+                            <td>${formattedDate}</td>
+                            <td>${req.source_container}</td>
+                            <td>${req.destination_container}</td>
+                            <td><span class="badge ${typeClass}">${req.request_type}</span></td>
+                            <td>${req.request_path}</td>
+                            <td class="${statusClass}">${req.status_code}</td>
+                            <td>${(req.response_time * 1000).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                requestsTableBody.innerHTML = html;
+            }
+            
+            // Funkcja aktualizująca wykresy
+            function updateCharts(stats) {
+                // Wykres interakcji
+                const interactionsData = prepareInteractionsData(stats.interactions);
+                if (interactionsChart) {
+                    interactionsChart.data = interactionsData;
+                    interactionsChart.update();
+                } else {
+                    const ctx = document.getElementById('interactionsChart').getContext('2d');
+                    interactionsChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: interactionsData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Liczba requestów między kontenerami'
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Wykres typów requestów
+                const requestTypesData = prepareRequestTypesData(stats.request_types);
+                if (requestTypesChart) {
+                    requestTypesChart.data = requestTypesData;
+                    requestTypesChart.update();
+                } else {
+                    const ctx = document.getElementById('requestTypesChart').getContext('2d');
+                    requestTypesChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: requestTypesData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Typy requestów'
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Wykres kodów statusu
+                const statusCodesData = prepareStatusCodesData(stats.status_codes);
+                if (statusCodesChart) {
+                    statusCodesChart.data = statusCodesData;
+                    statusCodesChart.update();
+                } else {
+                    const ctx = document.getElementById('statusCodesChart').getContext('2d');
+                    statusCodesChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: statusCodesData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Kody odpowiedzi'
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Funkcje przygotowujące dane dla wykresów
+            function prepareInteractionsData(interactions) {
+                const labels = [];
+                const data = [];
+                const colors = [];
+                
+                interactions.forEach(interaction => {
+                    const label = `${interaction.source_container} → ${interaction.destination_container}`;
+                    labels.push(label);
+                    data.push(interaction.request_count);
+                    colors.push(getRandomColor());
+                });
+                
+                return {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Liczba requestów',
+                        data: data,
+                        backgroundColor: colors
+                    }]
+                };
+            }
+            
+            function prepareRequestTypesData(requestTypes) {
+                const labels = [];
+                const data = [];
+                const colors = {
+                    'GET': '#28a745',
+                    'POST': '#007bff',
+                    'PUT': '#fd7e14',
+                    'DELETE': '#dc3545'
+                };
+                const backgroundColors = [];
+                
+                requestTypes.forEach(type => {
+                    labels.push(type.request_type);
+                    data.push(type.count);
+                    backgroundColors.push(colors[type.request_type] || getRandomColor());
+                });
+                
+                return {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors
+                    }]
+                };
+            }
+            
+            function prepareStatusCodesData(statusCodes) {
+                const labels = [];
+                const data = [];
+                const colors = {
+                    200: '#28a745',
+                    404: '#fd7e14',
+                    500: '#dc3545'
+                };
+                const backgroundColors = [];
+                
+                statusCodes.forEach(code => {
+                    labels.push(`${code.status_code}`);
+                    data.push(code.count);
+                    backgroundColors.push(colors[code.status_code] || getRandomColor());
+                });
+                
+                return {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors
+                    }]
+                };
+            }
+            
+            function getRandomColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            }
+            
+            // Funkcja włączająca/wyłączająca auto-odświeżanie
+            function toggleAutoRefresh() {
+                if (isAutoRefreshing) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshStatus.textContent = 'Wyłączone';
+                    isAutoRefreshing = false;
+                } else {
+                    loadData();
+                    autoRefreshInterval = setInterval(loadData, 5000);
+                    autoRefreshStatus.textContent = 'Włączone (5s)';
+                    isAutoRefreshing = true;
+                }
+            }
+            
+            // Event listenery
+            refreshBtn.addEventListener('click', loadData);
+            quickRefreshBtn.addEventListener('click', loadData);
+            autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
+            
+            // Załaduj dane przy starcie
+            loadData();
+        });
+    </script>
+</body>
+</html>

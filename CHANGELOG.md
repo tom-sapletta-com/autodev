@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.12] - 2025-05-06
+
+### Added
+- Changes in README.md
+- Changes in docker-compose.yml
+- Changes in docs/monitoring-system.md
+- Changes in install.sh
+- Changes in monitor/app.py
+- Changes in monitor/requirements.txt
+- Changes in monitor/static/style.css
+- Changes in monitor/templates/index.html
+- Changes in pyproject.toml
+- Changes in run.sh
+- Changes in setup.py
+
+### Changed
+- Changes in monitor/monitor.db
+
 ## [0.1.11] - 2025-05-06
 
 ### Added

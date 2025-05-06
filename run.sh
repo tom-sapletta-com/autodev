@@ -1,63 +1,108 @@
 #!/bin/bash
-# Uniwersalny skrypt do uruchamiania systemu evodev na Linux/Mac/WSL
-set -e
 
-# Kolory do statusów
-GREEN='\033[0;32m'
+# Kolory do komunikatów
 RED='\033[0;31m'
+GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Załaduj zmienne środowiskowe
+# Ładowanie zmiennych środowiskowych z pliku .env
 if [ -f .env ]; then
-  source .env
-else
-  echo -e "${RED}Plik .env nie istnieje, używam wartości domyślnych.${NC}"
-  MONITOR_PORT=8080
+  export $(cat .env | grep -v '^#' | xargs)
 fi
 
-# Funkcja do otwierania przeglądarki (multi-platformowa)
+# Funkcja do otwierania przeglądarki
 open_browser() {
-  URL=$1
-  echo -e "${GREEN}Próba otwarcia przeglądarki pod adresem: $URL${NC}"
+  local url="$1"
+  echo -e "${GREEN}Otwieram przeglądarkę: $url${NC}"
   
-  # Sprawdź system operacyjny
-  case "$(uname -s)" in
-    Linux*)
-      # Linux - sprawdź środowisko graficzne i dostępne programy
-      if command -v xdg-open > /dev/null; then
-        xdg-open "$URL" &>/dev/null &
-      elif command -v gio > /dev/null; then
-        gio open "$URL" &>/dev/null &
-      elif command -v gnome-open > /dev/null; then
-        gnome-open "$URL" &>/dev/null &
+  # Wykryj system operacyjny i otwórz URL w przeglądarce
+  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    if command -v xdg-open &>/dev/null; then
+      xdg-open "$url" &>/dev/null &
+    elif command -v gnome-open &>/dev/null; then
+      gnome-open "$url" &>/dev/null &
+    else
+      echo -e "${YELLOW}Nie można automatycznie otworzyć przeglądarki. Otwórz ręcznie URL: $url${NC}"
+      return 1
+    fi
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    open "$url" &>/dev/null &
+  elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    start "" "$url" &>/dev/null &
+  else
+    echo -e "${YELLOW}Nieobsługiwany system. Otwórz ręcznie URL: $url${NC}"
+    return 1
+  fi
+  
+  # Daj czas przeglądarce na otwarcie
+  sleep 3
+  return 0
+}
+
+# Funkcja do wyświetlania widoku logów w przeglądarce
+view_logs_in_browser() {
+  local logs_url="http://localhost:${MONITOR_PORT:-8080}/logs"
+  echo -e "${GREEN}Otwieram widok logów w przeglądarce...${NC}"
+  open_browser "$logs_url"
+  return 0
+}
+
+# Funkcja do instalacji pakietów
+install_package() {
+  local package_name=$1
+  local check_command=$2
+  
+  # Sprawdź czy pakiet jest już zainstalowany
+  if command -v $check_command &>/dev/null || $check_command --version &>/dev/null 2>&1; then
+    echo -e "${GREEN}OK: $package_name już zainstalowany.${NC}"
+    return 0
+  fi
+  
+  echo -e "${YELLOW}Instaluję brakującą zależność: $package_name${NC}"
+  echo -e "${YELLOW}UWAGA: Do instalacji $package_name wymagane są uprawnienia administratora.${NC}"
+  echo -e "${YELLOW}Zostaniesz poproszony o podanie hasła sudo.${NC}"
+  
+  # Daj użytkownikowi czas na przeczytanie komunikatu
+  sleep 1
+  
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    brew install $package_name || return 1
+  elif [ -f /etc/debian_version ]; then
+    sudo apt-get update && sudo apt-get install -y $package_name || return 1
+  elif [ -f /etc/redhat-release ]; then
+    sudo dnf install -y $package_name 2>/dev/null || sudo yum install -y $package_name || {
+      if [ "$package_name" = "terraform" ]; then
+        # Alternatywna instalacja Terraform przez pobranie binarki
+        echo -e "${YELLOW}Instaluję Terraform z binarki...${NC}"
+        T_VERSION="1.8.5"
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64) ARCH=amd64 ;;
+          aarch64) ARCH=arm64 ;;
+        esac
+        OS=$(uname | tr '[:upper:]' '[:lower:]')
+        URL="https://releases.hashicorp.com/terraform/${T_VERSION}/terraform_${T_VERSION}_${OS}_${ARCH}.zip"
+        TMPFILE=$(mktemp)
+        echo -e "Pobieram Terraform z ${URL}..."
+        curl -o "$TMPFILE" -fsSL "$URL" && unzip -o "$TMPFILE" -d /tmp && sudo mv /tmp/terraform /usr/local/bin/ && rm "$TMPFILE" || return 1
+      elif [ "$package_name" = "python3-pip" ]; then
+        # Alternatywna instalacja pip przez get-pip.py
+        echo -e "${YELLOW}Instaluję pip przez get-pip.py...${NC}"
+        curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+        python3 /tmp/get-pip.py --user || return 1
+        rm /tmp/get-pip.py
       else
-        echo -e "${YELLOW}Nie znaleziono standardowej komendy do otwarcia przeglądarki.${NC}"
-        echo -e "${GREEN}Otwórz przeglądarkę ręcznie pod adresem: $URL${NC}"
+        echo -e "${RED}Nie można zainstalować $package_name!${NC}"
         return 1
       fi
-      ;;
-    Darwin*)
-      # macOS
-      open "$URL" &>/dev/null &
-      ;;
-    MINGW*|CYGWIN*|MSYS*)
-      # Windows (Git Bash lub podobne)
-      start "$URL" &>/dev/null &
-      ;;
-    *)
-      # Sprawdź czy to WSL (Windows Subsystem for Linux)
-      if grep -qi microsoft /proc/version 2>/dev/null; then
-        # WSL
-        cmd.exe /c start "$URL" &>/dev/null &
-      else
-        echo -e "${YELLOW}Nieznany system operacyjny. Otwórz przeglądarkę ręcznie pod adresem: $URL${NC}"
-        return 1
-      fi
-      ;;
-  esac
+    }
+  else
+    echo -e "${RED}Nieobsługiwany system! Zainstaluj $package_name ręcznie.${NC}"
+    return 1
+  fi
   
-  echo -e "${GREEN}Przeglądarka została otwarta (lub spróbowaliśmy ją otworzyć).${NC}"
+  echo -e "${GREEN}Pakiet $package_name został zainstalowany.${NC}"
   return 0
 }
 
@@ -65,50 +110,33 @@ open_browser() {
 start_monitor() {
   echo -e "${GREEN}Uruchamianie monitora EvoDev...${NC}"
   
-  # Sprawdź czy katalog monitora istnieje
-  if [ ! -d "./monitor" ]; then
-    echo -e "${RED}Katalog monitora nie istnieje!${NC}"
-    return 1
-  fi
+  # Sprawdź czy monitor już działa
+  local MONITOR_PORT=${MONITOR_PORT:-8080}
+  local MONITOR_RUNNING=false
   
-  # 1. Sprawdź czy proces monitora już działa z dowolnego PID
-  MONITOR_RUNNING=false
-  MONITOR_PID=""
-  
-  # Znajdź wszystkie procesy Python uruchamiające monitor/app.py
-  # To najbardziej niezawodny sposób identyfikacji procesu niezależnie od PID
-  MONITOR_PROCESS=$(ps aux | grep -i "python.*monitor/app.py" | grep -v grep)
-  if [ ! -z "$MONITOR_PROCESS" ]; then
-    MONITOR_RUNNING=true
-    MONITOR_PID=$(echo "$MONITOR_PROCESS" | awk '{print $2}')
-    echo -e "${GREEN}Monitor już działa (PID: $MONITOR_PID)${NC}"
-    
-    # Upewnij się że PID jest zapisany poprawnie
-    echo $MONITOR_PID > ./monitor.pid
-  else
-    # Jeśli nie znaleziono procesu, ale istnieje plik PID, usuń go
-    if [ -f ./monitor.pid ]; then
-      rm ./monitor.pid
-    fi
-  fi
-  
-  # 2. Sprawdź czy port jest zajęty (jeśli monitor nie działa)
-  if [ "$MONITOR_RUNNING" = false ]; then
-    PORT_PID=$(lsof -ti:${MONITOR_PORT:-8080} 2>/dev/null | head -n1)
-    if [ ! -z "$PORT_PID" ]; then
-      echo -e "${YELLOW}Port ${MONITOR_PORT:-8080} jest zajęty przez proces PID: $PORT_PID${NC}"
-      echo -e "${YELLOW}Automatyczne zwalnianie portu...${NC}"
+  # Sprawdź czy port monitora jest używany
+  if lsof -i :$MONITOR_PORT -t >/dev/null 2>&1; then
+    # Sprawdź czy to nasz monitor z PID
+    if [ -f ./monitor.pid ] && ps -p $(cat ./monitor.pid) >/dev/null 2>&1; then
+      echo -e "${YELLOW}Monitor już działa na porcie $MONITOR_PORT (PID: $(cat ./monitor.pid))${NC}"
+      MONITOR_RUNNING=true
+    else
+      echo -e "${YELLOW}Port $MONITOR_PORT jest zajęty przez inny proces.${NC}"
+      echo -e "${YELLOW}Próbuję znaleźć wolny port...${NC}"
       
-      # Spróbuj zakończyć proces łagodnie
-      kill $PORT_PID 2>/dev/null || sudo kill $PORT_PID 2>/dev/null
-      sleep 1
+      # Znajdź wolny port
+      local PORT=8081
+      while lsof -i :$PORT -t >/dev/null 2>&1 && [ $PORT -lt 8100 ]; do
+        ((PORT++))
+      done
       
-      # Sprawdź czy proces nadal działa
-      if lsof -ti:${MONITOR_PORT:-8080} >/dev/null 2>&1; then
-        # Wymuś zakończenie jeśli łagodne nie zadziałało
-        echo -e "${YELLOW}Wymuszam zakończenie procesu...${NC}"
-        kill -9 $PORT_PID 2>/dev/null || sudo kill -9 $PORT_PID 2>/dev/null
-        sleep 1
+      if [ $PORT -lt 8100 ]; then
+        echo -e "${YELLOW}Znaleziono wolny port: $PORT${NC}"
+        MONITOR_PORT=$PORT
+      else
+        echo -e "${RED}Nie można znaleźć wolnego portu!${NC}"
+        echo -e "${RED}Zatrzymaj istniejące procesy na portach 8080-8099 i spróbuj ponownie.${NC}"
+        return 1
       fi
     fi
   fi
@@ -146,162 +174,61 @@ start_monitor() {
     return 1
   fi
   
-  # 5. Powiadom i otwórz przeglądarkę
-  echo -e "${GREEN}Monitor działa i jest dostępny pod adresem: http://localhost:${MONITOR_PORT:-8080}${NC}"
-  open_browser "http://localhost:${MONITOR_PORT:-8080}"
+  # 5. Otwórz przeglądarkę
+  local monitor_url="http://localhost:${MONITOR_PORT:-8080}"
+  echo -e "${GREEN}Monitor uruchomiony na: ${monitor_url}${NC}"
+  
+  # Nie musimy automatycznie otwierać przeglądarki, użytkownik może to zrobić ręcznie
+  # lub wybrać opcję "--logs" aby zobaczyć widok logów
+  return 0
+}
+
+# Instalacja wymaganych pakietów systemowych
+install_requirements() {
+  # Lista zależności
+  install_package docker docker
+  install_package docker-compose docker-compose
+  install_package terraform terraform
+  install_package ansible ansible
+  install_package python3-pip pip3
+  
+  # Pip na pewno
+  if ! command -v pip3 >/dev/null 2>&1; then
+    echo -e "${RED}Pip nadal nie jest zainstalowany! Spróbuj zainstalować ręcznie python3-pip.${NC}"
+    install_package python3-pip pip3
+  fi
   
   return 0
 }
 
-# Funkcja do wyświetlania logów w przeglądarce
-view_logs_in_browser() {
-  echo -e "${GREEN}Otwieranie logów w przeglądarce...${NC}"
+# Główna funkcja uruchamiająca system
+main() {
+  # 1. Instalacja wymaganych pakietów
+  install_requirements
   
-  # Sprawdź czy monitor jest uruchomiony
-  if [ ! -f ./monitor.pid ]; then
-    echo -e "${RED}Monitor nie jest uruchomiony. Uruchom najpierw skrypt.${NC}"
-    return 1
+  # 2. Uruchom monitor przed innymi usługami
+  start_monitor
+  
+  # 3. Dodaj opcję wyświetlania logów w przeglądarce
+  if [ "$1" == "--logs" ] || [ "$1" == "-l" ]; then
+    view_logs_in_browser
+    exit 0
   fi
   
-  # Otwórz stronę z logami w przeglądarce
-  open_browser "http://localhost:${MONITOR_PORT:-8080}/logs"
-  
-  return $?
-}
-
-# Automatyczna instalacja zależności systemowych
-function install_dep() {
-  PKG=$1
-  if command -v $PKG >/dev/null 2>&1; then
-    echo -e "${GREEN}OK:${NC} $PKG już zainstalowany."
-    return
-  fi
-  echo -e "${GREEN}Instaluję brakującą zależność: $PKG${NC}"
-  if [ "$PKG" = "terraform" ]; then
-    # Instaluj od razu binarkę Terraform - to zawsze działa na każdym systemie
-    T_VERSION="1.8.5"
-    ARCH=$(uname -m)
-    case "$ARCH" in
-      x86_64) ARCH=amd64 ;;
-      aarch64) ARCH=arm64 ;;
-    esac
-    OS=$(uname | tr '[:upper:]' '[:lower:]')
-    URL="https://releases.hashicorp.com/terraform/${T_VERSION}/terraform_${T_VERSION}_${OS}_${ARCH}.zip"
-    TMPFILE=$(mktemp)
-    echo -e "Pobieram Terraform z ${URL}..."
-    curl -o "$TMPFILE" -fsSL "$URL" && unzip -o "$TMPFILE" -d /tmp && sudo mv /tmp/terraform /usr/local/bin/ && rm "$TMPFILE"
-    if command -v terraform >/dev/null 2>&1; then
-      echo -e "${GREEN}Terraform zainstalowany binarnie.${NC}"
-    else
-      echo -e "${RED}Instalacja Terraform nie powiodła się!${NC}"
-      exit 1
-    fi
-    return
-  fi
-  if [ "$PKG" = "python3-pip" ]; then
-    # Instalacja pip może się różnić w zależności od systemu
-    if [ -f /etc/debian_version ]; then
-      sudo apt-get update && sudo apt-get install -y python3-pip
-    elif [ -f /etc/redhat-release ]; then
-      sudo yum install -y python3-pip || {
-        # Alternatywna instalacja via get-pip.py
-        echo -e "Instaluję pip ręcznie przez get-pip.py"
-        curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
-        python3 /tmp/get-pip.py --user
-        rm /tmp/get-pip.py
-      }
-    elif command -v brew >/dev/null 2>&1; then
-      brew install python3
-    else
-      echo -e "${RED}Nieobsługiwany system dla pip. Spróbuj ręcznie zainstalować python3-pip.${NC}"
-      return
-    fi
-    return
-  fi
-  # Standardowa instalacja innych zależności
-  if [ -f /etc/debian_version ]; then
-    sudo apt-get update && sudo apt-get install -y $PKG
-  elif [ -f /etc/redhat-release ]; then
-    sudo yum install -y $PKG
-  elif command -v brew >/dev/null 2>&1; then
-    brew install $PKG
-  else
-    echo -e "${RED}Nieobsługiwany system! Zainstaluj $PKG ręcznie.${NC}"
+  # 4. Uruchomienie usług docker-compose
+  if [ ! -s docker-compose.yml ]; then
+    echo -e "${RED}Plik docker-compose.yml jest pusty lub nie istnieje!${NC}"
     exit 1
   fi
+  
+  echo -e "${GREEN}Uruchamianie usług przez Docker Compose...${NC}"
+  docker-compose up -d
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Usługi docker-compose uruchomione.${NC}"
+  else
+    echo -e "${RED}Błąd podczas uruchamiania docker-compose!${NC}"
+  fi
 }
 
-# Lista zależności
-install_dep docker
-install_dep docker-compose
-install_dep terraform
-install_dep ansible
-install_dep python3-pip
-
-# Pip na pewno
-if ! command -v pip3 >/dev/null 2>&1; then
-  echo -e "${RED}pip3 nie został znaleziony. Instaluję...${NC}"
-  install_dep python3-pip
-fi
-
-# Uruchom monitor przed innymi usługami
-start_monitor
-
-# Dodaj opcję wyświetlania logów w przeglądarce
-if [ "$1" == "--logs" ] || [ "$1" == "-l" ]; then
-  view_logs_in_browser
-  exit 0
-fi
-
-# Uruchomienie usług docker-compose
-if [ ! -s docker-compose.yml ]; then
-  echo -e "${RED}Plik docker-compose.yml jest pusty lub nie istnieje!${NC}"
-  exit 1
-fi
-
-echo -e "${GREEN}Uruchamianie usług przez Docker Compose...${NC}"
-docker-compose up -d
-if [ $? -eq 0 ]; then
-  echo -e "${GREEN}Usługi docker-compose uruchomione.${NC}"
-else
-  echo -e "${RED}Błąd podczas uruchamiania docker-compose!${NC}"
-  exit 1
-fi
-
-# Sprawdzanie statusu kontenerów
-sleep 3
-echo -e "\n${GREEN}Status kontenerów:${NC}"
-docker-compose ps
-
-# Sprawdź czy Rocket.Chat działa
-ROCKETCHAT_URL="http://localhost:3000"
-echo -e "\n${GREEN}Sprawdzanie dostępności Rocket.Chat...${NC}"
-if curl -s --head "$ROCKETCHAT_URL" | grep '200 OK' > /dev/null; then
-  echo -e "${GREEN}Rocket.Chat jest dostępny pod: $ROCKETCHAT_URL${NC}"
-else
-  echo -e "${RED}Rocket.Chat nie odpowiada pod: $ROCKETCHAT_URL${NC}"
-fi
-
-# Inicjalizacja infrastruktury
-terraform init
-terraform apply -auto-approve
-
-# Deployment przez Ansible (przykład)
-# ansible-playbook -i inventory.ini playbook.yml
-
-# Uruchomienie warstwy middleware
-pip3 install -r requirements.txt
-nohup uvicorn middleware-api.app:app --host 0.0.0.0 --port 5000 &
-
-# Komunikat powitalny i instrukcja
-cat <<EOF
-
-${GREEN}System EvoDev uruchomiony!${NC}
-
-1. Otwórz przeglądarkę i przejdź do:  ${ROCKETCHAT_URL}
-2. W pierwszym widoku dostępny jest tylko chat przeglądarkowy.
-3. Połączony jest backend Ollama.
-4. Zostaniesz poproszony o podanie API tokena (np. do LLM).
-
-Kolejne funkcje (voice, automatyczne skille) będą aktywowane po konfiguracji tokena.
-EOF
+# Uruchom główną funkcję z przekazaniem argumentów
+main "$@"
