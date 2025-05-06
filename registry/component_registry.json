@@ -1,0 +1,44 @@
+{
+  "components": [
+    {
+      "name": "Ollama",
+      "type": "llm",
+      "version": "latest",
+      "status": "active",
+      "testable": true,
+      "updateable": true
+    },
+    {
+      "name": "CoreManager",
+      "type": "core",
+      "version": "1.0.0",
+      "status": "active",
+      "testable": true,
+      "updateable": true
+    },
+    {
+      "name": "GitLab",
+      "type": "vcs",
+      "version": "latest",
+      "status": "active",
+      "testable": true,
+      "updateable": true
+    },
+    {
+      "name": "MiddlewareAPI",
+      "type": "api",
+      "version": "0.1.0",
+      "status": "active",
+      "testable": true,
+      "updateable": true
+    },
+    {
+      "name": "RocketChat",
+      "type": "messaging",
+      "version": "latest",
+      "status": "active",
+      "testable": true,
+      "updateable": true
+    }
+  ]
+}

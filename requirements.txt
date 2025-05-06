@@ -1,0 +1,5 @@
+# Python dependencies for middleware-api and recovery-system
+fastapi
+uvicorn
+requests
+pyyaml
