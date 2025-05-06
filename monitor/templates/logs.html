@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoDev - Przeglądarka logów</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .log-container {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            overflow: hidden;
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background-color: #eee;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .log-content {
+            padding: 0;
+            max-height: 600px;
+            overflow: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+            background-color: #282c34;
+            color: #abb2bf;
+            margin: 0;
+        }
+        
+        .log-entry {
+            padding: 3px 10px;
+            border-bottom: 1px solid #3a3f4b;
+        }
+        
+        .log-entry:nth-child(odd) {
+            background-color: #2c313a;
+        }
+        
+        .log-entry.error {
+            color: #e06c75;
+        }
+        
+        .log-entry.warning {
+            color: #e5c07b;
+        }
+        
+        .log-entry.info {
+            color: #98c379;
+        }
+        
+        .log-entry.debug {
+            color: #61afef;
+        }
+        
+        .file-selector {
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        
+        .file-selector select {
+            padding: 8px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .refresh-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .log-stats {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .timestamp {
+            color: #666;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        
+        #auto-refresh {
+            margin-right: 5px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background-color: #eee;
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .nav-tabs li {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-right: 1px solid #ddd;
+        }
+        
+        .nav-tabs li:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .nav-tabs li.active {
+            background-color: #fff;
+            font-weight: bold;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 15px;
+            padding: 8px 15px;
+            background-color: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        
+        .back-link:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EvoDev Monitor - Przeglądarka logów</h1>
+            <p>System monitorowania logów aplikacji</p>
+        </header>
+        
+        <a href="/" class="back-link">← Powrót do dashboard</a>
+        
+        <section>
+            <div class="file-selector">
+                <h2>Wybierz plik logu</h2>
+                <select id="log-file-select">
+                    <option value="">Ładowanie plików logów...</option>
+                </select>
+            </div>
+            
+            <div class="refresh-control">
+                <button id="refresh-btn">Odśwież</button>
+                <div>
+                    <input type="checkbox" id="auto-refresh">
+                    <label for="auto-refresh">Automatyczne odświeżanie (5s)</label>
+                </div>
+                <div>
+                    <label for="lines-count">Ilość linii:</label>
+                    <input type="number" id="lines-count" min="10" max="1000" value="100">
+                </div>
+                <button id="clear-btn">Wyczyść widok</button>
+            </div>
+            
+            <ul class="nav-tabs">
+                <li class="active" data-view="formatted">Sformatowane</li>
+                <li data-view="raw">Surowe</li>
+            </ul>
+            
+            <div id="log-container" class="log-container">
+                <div class="log-header">
+                    <div id="log-filename">Wybierz plik logu...</div>
+                    <div class="log-controls">
+                        <div id="log-stats" class="log-stats"></div>
+                        <button id="download-btn">Pobierz plik</button>
+                    </div>
+                </div>
+                <pre id="log-content" class="log-content">
+                    <div class="log-entry">Ładowanie logów...</div>
+                </pre>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Zmienne globalne
+        let currentLogFile = '';
+        let currentView = 'formatted';
+        let autoRefreshInterval;
+        let lastLogData = null;
+        
+        // Elementy DOM
+        const logFileSelect = document.getElementById('log-file-select');
+        const logFilename = document.getElementById('log-filename');
+        const logContent = document.getElementById('log-content');
+        const logStats = document.getElementById('log-stats');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const autoRefreshCheckbox = document.getElementById('auto-refresh');
+        const linesCountInput = document.getElementById('lines-count');
+        const downloadBtn = document.getElementById('download-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const navTabs = document.querySelectorAll('.nav-tabs li');
+        
+        // Inicjalizacja przy załadowaniu strony
+        document.addEventListener('DOMContentLoaded', () => {
+            // Pobierz dostępne pliki logów
+            fetchAvailableLogs();
+            
+            // Ustaw nasłuchiwanie zdarzeń
+            logFileSelect.addEventListener('change', onLogFileSelected);
+            refreshBtn.addEventListener('click', refreshLogs);
+            autoRefreshCheckbox.addEventListener('change', toggleAutoRefresh);
+            downloadBtn.addEventListener('click', downloadLogFile);
+            clearBtn.addEventListener('click', () => logContent.innerHTML = '');
+            
+            // Obsługa zakładek
+            navTabs.forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    navTabs.forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentView = e.target.dataset.view;
+                    if (lastLogData) renderLogs(lastLogData);
+                });
+            });
+        });
+        
+        // Pobierz dostępne pliki logów
+        function fetchAvailableLogs() {
+            fetch('/api/available_logs')
+                .then(response => response.json())
+                .then(data => {
+                    logFileSelect.innerHTML = '';
+                    if (data.length === 0) {
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = 'Brak dostępnych plików logów';
+                        logFileSelect.appendChild(option);
+                    } else {
+                        data.forEach(log => {
+                            const option = document.createElement('option');
+                            option.value = log.path;
+                            option.textContent = `${log.filename} (${formatSize(log.size)}, mod: ${log.modified})`;
+                            logFileSelect.appendChild(option);
+                        });
+                        
+                        // Wybierz pierwszy plik automatycznie
+                        if (data.length > 0) {
+                            currentLogFile = data[0].path;
+                            logFileSelect.value = currentLogFile;
+                            onLogFileSelected();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Błąd podczas pobierania listy logów:', error);
+                    logFileSelect.innerHTML = '<option value="">Błąd ładowania plików</option>';
+                });
+        }
+        
+        // Wywołane po wybraniu pliku logu
+        function onLogFileSelected() {
+            currentLogFile = logFileSelect.value;
+            if (currentLogFile) {
+                logFilename.textContent = logFileSelect.options[logFileSelect.selectedIndex].textContent;
+                refreshLogs();
+            } else {
+                logFilename.textContent = 'Nie wybrano pliku logu';
+                logContent.innerHTML = '<div class="log-entry">Wybierz plik logu aby zobaczyć zawartość</div>';
+                logStats.textContent = '';
+            }
+        }
+        
+        // Odśwież logi
+        function refreshLogs() {
+            if (!currentLogFile) return;
+            
+            const maxLines = parseInt(linesCountInput.value) || 100;
+            
+            fetch(`/api/logs?file=${encodeURIComponent(currentLogFile)}&lines=${maxLines}`)
+                .then(response => response.json())
+                .then(data => {
+                    lastLogData = data;
+                    renderLogs(data);
+                })
+                .catch(error => {
+                    console.error('Błąd podczas pobierania logów:', error);
+                    logContent.innerHTML = '<div class="log-entry error">Błąd podczas pobierania logów. Sprawdź konsolę.</div>';
+                });
+        }
+        
+        // Renderuj logi w zależności od wybranego widoku
+        function renderLogs(data) {
+            logStats.textContent = `Wyświetlono ${data.displayed_lines} z ${data.total_lines} linii`;
+            
+            if (currentView === 'raw') {
+                // Widok surowy - po prostu pokaż linie tekstu
+                logContent.innerHTML = data.logs.map(log => {
+                    if (log.raw) {
+                        return `<div class="log-entry">${escapeHtml(log.raw)}</div>`;
+                    } else {
+                        return `<div class="log-entry">${escapeHtml(JSON.stringify(log))}</div>`;
+                    }
+                }).join('');
+            } else {
+                // Widok sformatowany - próba analizy logów
+                logContent.innerHTML = data.logs.map(log => {
+                    if (log.raw) {
+                        // Próba wykrycia poziomu logu
+                        let logClass = '';
+                        const rawLog = log.raw.toLowerCase();
+                        if (rawLog.includes('error') || rawLog.includes('błąd')) {
+                            logClass = 'error';
+                        } else if (rawLog.includes('warn')) {
+                            logClass = 'warning';
+                        } else if (rawLog.includes('info')) {
+                            logClass = 'info';
+                        } else if (rawLog.includes('debug')) {
+                            logClass = 'debug';
+                        }
+                        
+                        // Próba wyodrębnienia timestampa
+                        let formattedLog = log.raw;
+                        const timestampMatch = log.raw.match(/\d{4}[-/]\d{2}[-/]\d{2}[ T]\d{2}:\d{2}:\d{2}/);
+                        if (timestampMatch) {
+                            const timestamp = timestampMatch[0];
+                            formattedLog = log.raw.replace(timestamp, `<span class="timestamp">${timestamp}</span>`);
+                        }
+                        
+                        return `<div class="log-entry ${logClass}">${formattedLog}</div>`;
+                    } else {
+                        // Formatuj wpis JSON
+                        let logClass = '';
+                        if (log.level) {
+                            logClass = log.level.toLowerCase();
+                        }
+                        
+                        let formattedContent = '';
+                        if (log.timestamp && log.message) {
+                            formattedContent = `<span class="timestamp">${log.timestamp}</span> ${log.message}`;
+                        } else {
+                            formattedContent = escapeHtml(JSON.stringify(log, null, 2));
+                        }
+                        
+                        return `<div class="log-entry ${logClass}">${formattedContent}</div>`;
+                    }
+                }).join('');
+            }
+            
+            // Przewiń na dół
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+        
+        // Włącz/wyłącz automatyczne odświeżanie
+        function toggleAutoRefresh() {
+            if (autoRefreshCheckbox.checked) {
+                autoRefreshInterval = setInterval(refreshLogs, 5000);
+            } else if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        }
+        
+        // Pobierz plik logu
+        function downloadLogFile() {
+            if (!currentLogFile) return;
+            
+            // Utwórz link do pobrania pliku
+            const filename = currentLogFile.split('/').pop();
+            const link = document.createElement('a');
+            link.href = `/api/logs?file=${encodeURIComponent(currentLogFile)}&lines=999999`;
+            link.download = filename;
+            link.target = '_blank';
+            link.click();
+        }
+        
+        // Pomocnicze funkcje
+        function formatSize(bytes) {
+            if (bytes < 1024) {
+                return bytes + ' B';
+            } else if (bytes < 1024 * 1024) {
+                return (bytes / 1024).toFixed(1) + ' KB';
+            } else {
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

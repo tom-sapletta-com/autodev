@@ -5,7 +5,169 @@ set -e
 # Kolory do statusów
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+# Załaduj zmienne środowiskowe
+if [ -f .env ]; then
+  source .env
+else
+  echo -e "${RED}Plik .env nie istnieje, używam wartości domyślnych.${NC}"
+  MONITOR_PORT=8080
+fi
+
+# Funkcja do otwierania przeglądarki (multi-platformowa)
+open_browser() {
+  URL=$1
+  echo -e "${GREEN}Próba otwarcia przeglądarki pod adresem: $URL${NC}"
+  
+  # Sprawdź system operacyjny
+  case "$(uname -s)" in
+    Linux*)
+      # Linux - sprawdź środowisko graficzne i dostępne programy
+      if command -v xdg-open > /dev/null; then
+        xdg-open "$URL" &>/dev/null &
+      elif command -v gio > /dev/null; then
+        gio open "$URL" &>/dev/null &
+      elif command -v gnome-open > /dev/null; then
+        gnome-open "$URL" &>/dev/null &
+      else
+        echo -e "${YELLOW}Nie znaleziono standardowej komendy do otwarcia przeglądarki.${NC}"
+        echo -e "${GREEN}Otwórz przeglądarkę ręcznie pod adresem: $URL${NC}"
+        return 1
+      fi
+      ;;
+    Darwin*)
+      # macOS
+      open "$URL" &>/dev/null &
+      ;;
+    MINGW*|CYGWIN*|MSYS*)
+      # Windows (Git Bash lub podobne)
+      start "$URL" &>/dev/null &
+      ;;
+    *)
+      # Sprawdź czy to WSL (Windows Subsystem for Linux)
+      if grep -qi microsoft /proc/version 2>/dev/null; then
+        # WSL
+        cmd.exe /c start "$URL" &>/dev/null &
+      else
+        echo -e "${YELLOW}Nieznany system operacyjny. Otwórz przeglądarkę ręcznie pod adresem: $URL${NC}"
+        return 1
+      fi
+      ;;
+  esac
+  
+  echo -e "${GREEN}Przeglądarka została otwarta (lub spróbowaliśmy ją otworzyć).${NC}"
+  return 0
+}
+
+# Uruchomienie monitora jako proces w tle
+start_monitor() {
+  echo -e "${GREEN}Uruchamianie monitora EvoDev...${NC}"
+  
+  # Sprawdź czy katalog monitora istnieje
+  if [ ! -d "./monitor" ]; then
+    echo -e "${RED}Katalog monitora nie istnieje!${NC}"
+    return 1
+  fi
+  
+  # 1. Sprawdź czy proces monitora już działa z dowolnego PID
+  MONITOR_RUNNING=false
+  MONITOR_PID=""
+  
+  # Znajdź wszystkie procesy Python uruchamiające monitor/app.py
+  # To najbardziej niezawodny sposób identyfikacji procesu niezależnie od PID
+  MONITOR_PROCESS=$(ps aux | grep -i "python.*monitor/app.py" | grep -v grep)
+  if [ ! -z "$MONITOR_PROCESS" ]; then
+    MONITOR_RUNNING=true
+    MONITOR_PID=$(echo "$MONITOR_PROCESS" | awk '{print $2}')
+    echo -e "${GREEN}Monitor już działa (PID: $MONITOR_PID)${NC}"
+    
+    # Upewnij się że PID jest zapisany poprawnie
+    echo $MONITOR_PID > ./monitor.pid
+  else
+    # Jeśli nie znaleziono procesu, ale istnieje plik PID, usuń go
+    if [ -f ./monitor.pid ]; then
+      rm ./monitor.pid
+    fi
+  fi
+  
+  # 2. Sprawdź czy port jest zajęty (jeśli monitor nie działa)
+  if [ "$MONITOR_RUNNING" = false ]; then
+    PORT_PID=$(lsof -ti:${MONITOR_PORT:-8080} 2>/dev/null | head -n1)
+    if [ ! -z "$PORT_PID" ]; then
+      echo -e "${YELLOW}Port ${MONITOR_PORT:-8080} jest zajęty przez proces PID: $PORT_PID${NC}"
+      echo -e "${YELLOW}Automatyczne zwalnianie portu...${NC}"
+      
+      # Spróbuj zakończyć proces łagodnie
+      kill $PORT_PID 2>/dev/null || sudo kill $PORT_PID 2>/dev/null
+      sleep 1
+      
+      # Sprawdź czy proces nadal działa
+      if lsof -ti:${MONITOR_PORT:-8080} >/dev/null 2>&1; then
+        # Wymuś zakończenie jeśli łagodne nie zadziałało
+        echo -e "${YELLOW}Wymuszam zakończenie procesu...${NC}"
+        kill -9 $PORT_PID 2>/dev/null || sudo kill -9 $PORT_PID 2>/dev/null
+        sleep 1
+      fi
+    fi
+  fi
+  
+  # 3. Uruchom monitor jeśli nie działa
+  if [ "$MONITOR_RUNNING" = false ]; then
+    # Instaluj zależności
+    echo -e "Instalacja zależności monitora..."
+    pip install -q -r ./monitor/requirements.txt || {
+      echo -e "${RED}Nie można zainstalować zależności monitora!${NC}"
+      return 1
+    }
+    
+    # Uruchom monitor w tle
+    echo -e "${GREEN}Uruchamianie monitora na porcie ${MONITOR_PORT:-8080}...${NC}"
+    nohup python ./monitor/app.py > ./monitor.log 2>&1 &
+    MONITOR_PID=$!
+    
+    # Zapisz PID do pliku
+    echo $MONITOR_PID > ./monitor.pid
+    
+    # Sprawdź czy proces uruchomił się poprawnie
+    sleep 2
+    if ! ps -p $MONITOR_PID >/dev/null 2>&1; then
+      echo -e "${RED}Nie udało się uruchomić monitora!${NC}"
+      echo -e "${YELLOW}Sprawdź logi w pliku monitor.log${NC}"
+      return 1
+    fi
+  fi
+  
+  # 4. Ostateczna weryfikacja czy monitor faktycznie działa
+  if ! curl -s -f http://localhost:${MONITOR_PORT:-8080}/health >/dev/null 2>&1; then
+    echo -e "${RED}Monitor nie odpowiada na port ${MONITOR_PORT:-8080}!${NC}"
+    echo -e "${YELLOW}Sprawdź logi w pliku monitor.log${NC}"
+    return 1
+  fi
+  
+  # 5. Powiadom i otwórz przeglądarkę
+  echo -e "${GREEN}Monitor działa i jest dostępny pod adresem: http://localhost:${MONITOR_PORT:-8080}${NC}"
+  open_browser "http://localhost:${MONITOR_PORT:-8080}"
+  
+  return 0
+}
+
+# Funkcja do wyświetlania logów w przeglądarce
+view_logs_in_browser() {
+  echo -e "${GREEN}Otwieranie logów w przeglądarce...${NC}"
+  
+  # Sprawdź czy monitor jest uruchomiony
+  if [ ! -f ./monitor.pid ]; then
+    echo -e "${RED}Monitor nie jest uruchomiony. Uruchom najpierw skrypt.${NC}"
+    return 1
+  fi
+  
+  # Otwórz stronę z logami w przeglądarce
+  open_browser "http://localhost:${MONITOR_PORT:-8080}/logs"
+  
+  return $?
+}
 
 # Automatyczna instalacja zależności systemowych
 function install_dep() {
@@ -80,6 +242,15 @@ install_dep python3-pip
 if ! command -v pip3 >/dev/null 2>&1; then
   echo -e "${RED}pip3 nie został znaleziony. Instaluję...${NC}"
   install_dep python3-pip
+fi
+
+# Uruchom monitor przed innymi usługami
+start_monitor
+
+# Dodaj opcję wyświetlania logów w przeglądarce
+if [ "$1" == "--logs" ] || [ "$1" == "-l" ]; then
+  view_logs_in_browser
+  exit 0
 fi
 
 # Uruchomienie usług docker-compose

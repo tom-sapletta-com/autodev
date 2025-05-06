@@ -1,5 +1,5 @@
 #!/bin/bash
-# Kompletny instalator środowiska autodev (Linux/macOS/Fedora)
+# Kompletny instalator środowiska evodev (Linux/macOS/Fedora)
 set -e
 
 # Wykrywanie platformy

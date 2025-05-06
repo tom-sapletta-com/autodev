@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoDev Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta http-equiv="refresh" content="5">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EvoDev Monitor</h1>
+            <p>System monitorowania stanu aplikacji EvoDev</p>
+        </header>
+
+        <section class="system-status">
+            <h2>Status Systemu</h2>
+            <div class="dashboard" id="system-stats">
+                <div class="stat-card">
+                    <h3>CPU</h3>
+                    <div class="stat-value" id="cpu-value">Ładowanie...</div>
+                    <div class="progress-bar">
+                        <div class="progress" id="cpu-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <h3>Pamięć</h3>
+                    <div class="stat-value" id="memory-value">Ładowanie...</div>
+                    <div class="progress-bar">
+                        <div class="progress" id="memory-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <h3>Dysk</h3>
+                    <div class="stat-value" id="disk-value">Ładowanie...</div>
+                    <div class="progress-bar">
+                        <div class="progress" id="disk-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="docker-status">
+            <h2>Status Docker</h2>
+            <pre id="docker-status">Ładowanie statusu Docker...</pre>
+        </section>
+
+        <section class="events">
+            <h2>Ostatnie Zdarzenia</h2>
+            <table id="events-table">
+                <thead>
+                    <tr>
+                        <th>Czas</th>
+                        <th>Typ</th>
+                        <th>Komponent</th>
+                        <th>Komunikat</th>
+                    </tr>
+                </thead>
+                <tbody id="events-body">
+                    <tr><td colspan="4">Ładowanie zdarzeń...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        // Funkcja odświeżająca dane
+        function fetchData() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateSystemStats(data.system);
+                    updateEvents(data.events);
+                })
+                .catch(error => console.error('Błąd pobierania danych:', error));
+        }
+
+        // Aktualizuj statystyki systemu
+        function updateSystemStats(system) {
+            if (!system || Object.keys(system).length === 0) {
+                console.error('Brak danych o systemie');
+                return;
+            }
+
+            // CPU
+            document.getElementById('cpu-value').textContent = system.cpu_percent.toFixed(1) + '%';
+            document.getElementById('cpu-bar').style.width = system.cpu_percent + '%';
+            
+            // Pamięć
+            document.getElementById('memory-value').textContent = system.memory_percent.toFixed(1) + '%';
+            document.getElementById('memory-bar').style.width = system.memory_percent + '%';
+            
+            // Dysk
+            document.getElementById('disk-value').textContent = system.disk_usage.toFixed(1) + '%';
+            document.getElementById('disk-bar').style.width = system.disk_usage + '%';
+            
+            // Status Docker
+            document.getElementById('docker-status').textContent = system.docker_status || 'Brak danych';
+        }
+
+        // Aktualizuj listę zdarzeń
+        function updateEvents(events) {
+            const tbody = document.getElementById('events-body');
+            tbody.innerHTML = '';
+            
+            if (!events || events.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="4">Brak zdarzeń</td>';
+                tbody.appendChild(row);
+                return;
+            }
+            
+            events.forEach(event => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(event.timestamp).toLocaleString()}</td>
+                    <td>${event.event_type}</td>
+                    <td>${event.component}</td>
+                    <td>${event.message}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Pobierz dane na początku
+        fetchData();
+        
+        // Odświeżaj dane co 5 sekund
+        setInterval(fetchData, 5000);
+    </script>
+</body>
+</html>

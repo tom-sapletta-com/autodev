@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:latest
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://mongo:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://mongo:27017/local
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:5.0
+    restart: unless-stopped
+    volumes:
+      - ./data/db:/data/db
+    command: mongod --oplogSize 128 --replSet rs0
+
+  mongo-init-replica:
+    image: mongo:5.0
+    restart: "no"
+    depends_on:
+      - mongo
+    command: >
+      bash -c "sleep 10 && mongosh --host mongo:27017 --eval \"rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]});\""
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ./ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+
+  evodev-core:
+    image: python:3.11-slim
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: >
+      bash -c "pip install -e . && python -m evodev.main"
+    depends_on:
+      - rocketchat
+      - ollama
+    environment:
+      - ROCKETCHAT_URL=http://rocketchat:3000
+      - OLLAMA_URL=http://ollama:11434
