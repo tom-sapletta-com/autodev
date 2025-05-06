@@ -124,7 +124,7 @@ start_monitor() {
     
     # Uruchom monitor w tle
     echo -e "${GREEN}Uruchamianie monitora na porcie ${MONITOR_PORT:-8080}...${NC}"
-    nohup python ./monitor/app.py > ./monitor.log 2>&1 &
+    (cd monitor && python app.py > ../monitor.log 2>&1) &
     MONITOR_PID=$!
     
     # Zapisz PID do pliku

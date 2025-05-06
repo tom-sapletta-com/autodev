@@ -1,17 +1,102 @@
-# EvoDev
+# EvoDev - Ewolucyjny Asystent dla Programistów
+
+<div align="center">
+  <img src="docs/images/evodev-logo.png" alt="EvoDev Logo" width="300">
+  <br>
+  <em>Automatyczna instalacja, konfiguracja i rozwój umiejętności dla środowisk programistycznych</em>
+</div>
+
+## Spis Treści
+- [📋 Przegląd](#przegląd)
+- [🚀 Szybki Start](#szybki-start)
+- [📦 Instalacja](#instalacja-i-konfiguracja-projektu)
+- [🔧 Konfiguracja](#konfiguracja-środowiska)
+- [🖥️ System Monitorowania](#system-monitorowania)
+- [🏗️ Architektura](#architektura-systemu)
+- [💡 Funkcje](#kluczowe-funkcje)
+- [📚 Dokumentacja](#dokumentacja)
+- [🛠️ Rozwój](#rozszerzanie-systemu-o-nowe-skille)
+
+## Przegląd
 
 EvoDev to asystent ewolucyjny dla programistów. Uczy się nowych umiejętności (skilli) poprzez automatyczną instalację i konfigurację nowego oprogramowania (np. przez Docker Compose).
 
-## Podsumowanie dokumentacji
+```mermaid
+graph TD
+    A[Użytkownik] -->|Zleca zadanie| B[EvoDev]
+    B -->|Instaluje komponenty| C[Docker Containers]
+    B -->|Zarządza usługami| D[Middleware API]
+    B -->|Monitoruje system| E[System Monitoringu]
+    C -->|Uruchamia| F[Ollama]
+    C -->|Uruchamia| G[VS Code Server]
+    C -->|Uruchamia| H[GitLab]
+    C -->|Uruchamia| I[Rocket.Chat]
+```
 
-- [docs/3.md](docs/3.md): Architektura systemu, główne komponenty (Ollama, VS Code Server, CLI/API Manager, GitLab, Rocket.Chat), klasy automatyzacji, przykłady kodu.
-- [docs/4.md](docs/4.md): Etapy ewolucji systemu, przykłady użycia na różnych poziomach rozwoju.
-- [docs/5.md](docs/5.md): Plan implementacji, przykładowa struktura katalogów, docker-compose, opis warstwy middleware, kod zarządzania usługami Docker, klienty API.
-- [docs/6.md](docs/6.md): Architektura systemu rdzeniowego, system przywracania, integracja z GitLab CI/CD, rejestr komponentów, skrypty backupu i recovery.
-- [docs/7.md](docs/7.md): Koncepcja dwóch redundantnych rdzeni (Core1, Core2), sandbox do testowania nowości, diagram architektury, rejestrowanie każdej akcji w bazie danych, automatyczne testowanie.
-- [docs/8.md](docs/8.md): Implementacja infrastruktury w Terraform, przykładowy main.tf, definicje sieci, wolumenów, aktywnego rdzenia, sandboxa, loggera, modularność.
+## Szybki Start
 
-## Instalacja i konfiguracja projektu
+```bash
+# Klonowanie repozytorium
+git clone <adres_repozytorium>
+cd EvoDev
+
+# Uruchomienie systemu
+./run.sh
+
+# Uruchomienie monitora z widokiem logów
+./run.sh --logs
+
+# Zatrzymanie wszystkich usług
+./stop.sh
+```
+
+## System Monitorowania
+
+System monitorowania EvoDev zapewnia:
+- Monitorowanie zasobów systemowych (CPU, RAM, dysk)
+- Śledzenie statusu kontenerów Docker
+- Przeglądanie logów systemowych
+- Powiadomienia o problemach
+
+### Interfejs Monitora
+
+Monitor jest dostępny pod adresem: `http://localhost:8080`
+
+![Dashboard Monitora](docs/images/monitor-dashboard.png)
+
+### Przeglądarka Logów
+
+Dostęp do przeglądarki logów:
+- Poprzez monitor: `http://localhost:8080/logs`
+- Bezpośrednio: `./run.sh --logs`
+
+![Przeglądarka Logów](docs/images/log-viewer.png)
+
+## Architektura Systemu
+
+EvoDev składa się z dwóch redundantnych rdzeni i piaskownicy do testowania:
+
+```
+┌───────────────┐     ┌───────────────┐
+│     Core1     │     │     Core2     │
+│  (Aktywny)    │◄────┤  (Standby)    │
+└───────┬───────┘     └───────────────┘
+        │
+        ▼
+┌───────────────┐
+│   Sandbox     │
+│ (Testowanie)  │
+└───────────────┘
+```
+
+Główne komponenty:
+- **Ollama**: Lokalne modele LLM
+- **VS Code Server**: Środowisko programistyczne
+- **Middleware API**: Zarządzanie usługami
+- **GitLab**: Kontrola wersji i CI/CD
+- **Rocket.Chat**: Komunikacja i wydawanie poleceń
+
+## Instalacja i Konfiguracja Projektu
 
 ### 1. Klonowanie repozytorium
 
@@ -51,81 +136,73 @@ sudo bash install.sh
 pip install -e .
 ```
 
-### 5. Uruchomienie testów głosowych
+### 5. Uruchomienie systemu
 
 ```bash
-python3 test_voice_skill.py
+./run.sh
 ```
 
----
+## Kluczowe Funkcje
 
-## Automatyczna obsługa głosowa (voice skill)
+- **Automatyczna konfiguracja środowiska**: System automatycznie instaluje i konfiguruje wszystkie potrzebne komponenty
+- **Redundantne rdzenie**: Dwa rdzenie (Core1, Core2) zapewniają wysoką dostępność i możliwość testowania
+- **Piaskownica**: Bezpieczne testowanie nowych funkcjonalności bez wpływu na środowisko produkcyjne
+- **Rozszerzalność**: Łatwe dodawanie nowych umiejętności poprzez API
+- **Monitorowanie**: Kompleksowy system monitorowania zasobów i logów
+- **Głosowa interakcja**: Możliwość sterowania systemem przez polecenia głosowe
 
-- System po uruchomieniu pyta o token API do LLM.
-- Po podaniu tokena instaluje i testuje obsługę głosu (ASR/TTS).
-- Jeśli testy przejdą pomyślnie, voice-chatbot jest gotowy do użycia.
+## Dokumentacja
 
----
+Szczegółowa dokumentacja dostępna w katalogu `docs/`:
 
-## Struktura projektu
+- [📖 Architektura Systemu](docs/3.md): Komponenty, klasy, przykłady kodu
+- [📖 Etapy Ewolucji](docs/4.md): Rozwój systemu i przykłady użycia
+- [📖 Plan Implementacji](docs/5.md): Struktura katalogów, zarządzanie usługami Docker
+- [📖 System Rdzeniowy](docs/6.md): System przywracania, integracja z GitLab CI/CD
+- [📖 Redundantne Rdzenie](docs/7.md): Koncepcja dwóch rdzeni, sandbox testowy
+- [📖 Infrastruktura Terraform](docs/8.md): Implementacja infrastruktury
+- [📖 System Monitorowania](docs/monitoring-system.md): Architektura monitora, przepływ danych, rozwiązywanie problemów
+
+## Struktura Projektu
 
 ```
 .
-├── docker-compose.yml
-├── main.tf
-├── modules/
-│   ├── core/
-│   ├── sandbox/
-│   └── services/
-├── middleware-api/
-├── recovery-system/
-├── registry/
-│   └── component_registry.json
-├── scripts/
-│   ├── setup.sh
-│   └── deploy.sh
-├── data/
-│   ├── logs/
-│   ├── backups/
-│   └── system_db/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── performance/
-├── README.md
-├── docs/
-│   ├── 3.md
-│   ├── 4.md
-│   ├── 5.md
-│   ├── 6.md
-│   ├── 7.md
-│   └── 8.md
-├── pyproject.toml
-├── setup.py
-├── .env.example
-├── test_voice_skill.py
-└── scripts/
-    └── ollama_autoselect.sh
+├── docker-compose.yml       # Definicje usług Docker
+├── run.sh                   # Skrypt uruchamiający system
+├── stop.sh                  # Skrypt zatrzymujący system
+├── .env                     # Zmienne środowiskowe
+├── modules/                 # Moduły infrastruktury
+│   ├── core/                # Moduł rdzeniowy
+│   ├── sandbox/             # Środowisko testowe
+│   └── services/            # Usługi wspierające
+├── middleware-api/          # API zarządzające usługami
+├── monitor/                 # System monitorowania
+│   ├── app.py               # Aplikacja Flask do monitorowania
+│   ├── requirements.txt     # Zależności monitora
+│   ├── static/              # Pliki statyczne (CSS, JS)
+│   └── templates/           # Szablony HTML
+├── recovery-system/         # System odzyskiwania
+├── data/                    # Dane systemowe
+│   ├── logs/                # Logi systemowe
+│   ├── backups/             # Kopie zapasowe
+│   └── system_db/           # Baza danych systemu
+├── docs/                    # Dokumentacja
+│   ├── images/              # Grafiki i diagramy
+│   ├── monitoring-system.md # Dokumentacja systemu monitorowania
+│   └── [...]               # Pozostałe dokumenty
+└── tests/                   # Testy
 ```
 
-## Kluczowe założenia
-- Dwa rdzenie (Core1, Core2) – jeden aktywny, drugi standby, replikowalność i testowanie.
-- Sandbox do testowania nowych funkcji i aktualizacji.
-- Każda akcja, komenda, request rejestrowana w bazie danych (logi, historia, wersje komponentów, wyniki testów).
-- Modularna architektura, łatwa rozbudowa przez Terraform/Ansible/Docker Compose.
-
-## Rozszerzanie systemu o nowe skille
+## Rozszerzanie Systemu o Nowe Skille
 
 Aby dodać nową funkcjonalność (np. obsługę głosu, OCR, powiadomienia):
 1. Wydaj polecenie przez Rocket.Chat (np. "Chcę rozmawiać głosowo").
 2. System automatycznie zainstaluje wymagane biblioteki i przeprowadzi test.
 3. Po pozytywnym teście funkcja jest gotowa do użycia.
 
-## Przykład interakcji
+## Przykład Interakcji
 
 - System: "Podaj klucz API do LLM (np. OpenRouter)."
 - Użytkownik: "sk-xxxx..."
 - System: "Instaluję obsługę głosu... Powiedz coś do mikrofonu..."
 - System: "Voice-chatbot gotowy do użycia!"
-
-Więcej szczegółów w dokumentacji w katalogu `docs/`.

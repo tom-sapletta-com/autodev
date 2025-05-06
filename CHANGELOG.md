@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.11] - 2025-05-06
+
+### Added
+- Changes in README.md
+- Changes in pyproject.toml
+- Changes in run.sh
+- Changes in setup.py
+- Changes in stop.sh
+
+### Changed
+- Changes in monitor.db-journal
+- Changes in monitor/monitor.db
+- Changes in monitor.db
+
+### Removed
+- Changes in monitor.pid
+
 ## [0.1.10] - 2025-05-06
 
 ### Added
