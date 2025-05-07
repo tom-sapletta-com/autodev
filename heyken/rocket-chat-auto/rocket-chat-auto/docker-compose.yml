@@ -1,0 +1,65 @@
+version: '3'
+
+services:
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:latest
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3100
+      - MONGO_URL=mongodb://mongo:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://mongo:27017/local
+      - OVERWRITE_SETTING_Show_Setup_Wizard=completed
+    depends_on:
+      - mongo
+    ports:
+      - 3100:3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/info"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo:
+    image: mongo:5.0
+    restart: unless-stopped
+    volumes:
+      - ./data/db:/data/db
+      - ./data/dump:/dump
+    command: mongod --oplogSize 128 --replSet rs0 --storageEngine=wiredTiger
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo-init-replica:
+    image: mongo:5.0
+    restart: "no"
+    depends_on:
+      - mongo
+    command: >
+      bash -c "
+        echo 'Waiting for MongoDB to start...' &&
+        sleep 10 &&
+        mongo mongo/rocketchat --eval \"
+          rs.initiate({
+            _id: 'rs0',
+            members: [ { _id: 0, host: 'mongo:27017' } ]
+          })
+        \"
+      "
+
+  setup-users:
+    image: curlimages/curl:latest
+    depends_on:
+      - rocketchat
+    volumes:
+      - ./setup-rocketchat-users.sh:/setup.sh
+      - ./.env:/.env
+    environment:
+      - ROCKETCHAT_URL=http://rocketchat:3000
+    entrypoint: ["sh", "-c", "chmod +x /setup.sh && /setup.sh"]
+    restart: "no"

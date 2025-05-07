@@ -203,6 +203,11 @@ install_requirements() {
 
 # Główna funkcja uruchamiająca system
 main() {
+  # 0. Najpierw zatrzymaj wszystkie usługi, aby uniknąć konfliktów portów
+  echo -e "${YELLOW}Zatrzymywanie wszystkich usług przed uruchomieniem...${NC}"
+  ./stop.sh
+  echo -e "${GREEN}Wszystkie usługi zostały zatrzymane. Rozpoczynam uruchamianie...${NC}"
+  
   # 1. Instalacja wymaganych pakietów
   install_requirements
   
@@ -215,19 +220,138 @@ main() {
     exit 0
   fi
   
-  # 4. Uruchomienie usług docker-compose
-  if [ ! -s docker-compose.yml ]; then
-    echo -e "${RED}Plik docker-compose.yml jest pusty lub nie istnieje!${NC}"
-    exit 1
+  # 4. Uruchomienie RocketChat
+  echo -e "${GREEN}Uruchamianie RocketChat...${NC}"
+  if [ -f docker/rocketchat/docker-compose-new.yml ]; then
+    cd docker/rocketchat
+    docker-compose -f docker-compose-new.yml up -d
+    cd ../..
+    if [ $? -eq 0 ]; then
+      echo -e "${GREEN}RocketChat uruchomiony na porcie 3100.${NC}"
+      
+      # Czekaj na uruchomienie RocketChat
+      echo -e "${YELLOW}Oczekiwanie na uruchomienie RocketChat...${NC}"
+      MAX_ATTEMPTS=30
+      ATTEMPT=0
+      ROCKETCHAT_READY=false
+      
+      while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+        echo -n "."
+        # Próba połączenia z RocketChat
+        if curl -s http://localhost:3100 > /dev/null; then
+          echo -e "\n${GREEN}RocketChat jest gotowy!${NC}"
+          ROCKETCHAT_READY=true
+          break
+        fi
+        ATTEMPT=$((ATTEMPT+1))
+        sleep 5
+      done
+      
+      if [ "$ROCKETCHAT_READY" = true ]; then
+        # Konfiguracja RocketChat
+        echo -e "${GREEN}Konfigurowanie RocketChat...${NC}"
+        cd scripts
+        ./setup_rocketchat.sh
+        cd ..
+        if [ $? -eq 0 ]; then
+          echo -e "${GREEN}RocketChat skonfigurowany pomyślnie.${NC}"
+          echo -e "${GREEN}Możesz zalogować się jako: user / user123${NC}"
+        else
+          echo -e "${YELLOW}Wystąpiły problemy z konfiguracją RocketChat, ale kontynuujemy...${NC}"
+        fi
+      else
+        echo -e "${YELLOW}RocketChat nie odpowiada, ale kontynuujemy...${NC}"
+      fi
+    else
+      echo -e "${RED}Błąd podczas uruchamiania RocketChat!${NC}"
+    fi
+  else
+    echo -e "${YELLOW}Brak pliku konfiguracyjnego RocketChat. Pomijam uruchomienie RocketChat.${NC}"
   fi
   
-  echo -e "${GREEN}Uruchamianie usług przez Docker Compose...${NC}"
-  docker-compose up -d
-  if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Usługi docker-compose uruchomione.${NC}"
+  # 5. Uruchomienie pozostałych usług docker-compose
+  if [ -f docker-compose.yml ]; then
+    echo -e "${GREEN}Uruchamianie pozostałych usług przez Docker Compose...${NC}"
+    docker-compose up -d
+    if [ $? -eq 0 ]; then
+      echo -e "${GREEN}Usługi docker-compose uruchomione.${NC}"
+    else
+      echo -e "${RED}Błąd podczas uruchamiania docker-compose!${NC}"
+    fi
   else
-    echo -e "${RED}Błąd podczas uruchamiania docker-compose!${NC}"
+    echo -e "${YELLOW}Plik docker-compose.yml nie istnieje. Pomijam uruchomienie głównych usług.${NC}"
   fi
+  
+  # 6. Uruchomienie Ollama jeśli nie jest już uruchomione
+  echo -e "${GREEN}Sprawdzanie statusu Ollama...${NC}"
+  if ! curl -s http://localhost:11434/api/tags > /dev/null; then
+    echo -e "${YELLOW}Ollama nie jest uruchomione. Uruchamiam...${NC}"
+    docker run -d --name ollama -p 11434:11434 ollama/ollama
+    
+    # Czekaj na uruchomienie Ollama
+    echo -e "${YELLOW}Oczekiwanie na uruchomienie Ollama...${NC}"
+    MAX_ATTEMPTS=30
+    ATTEMPT=0
+    OLLAMA_READY=false
+    
+    while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+      echo -n "."
+      if curl -s http://localhost:11434/api/tags > /dev/null; then
+        echo -e "\n${GREEN}Ollama jest gotowe!${NC}"
+        OLLAMA_READY=true
+        break
+      fi
+      ATTEMPT=$((ATTEMPT+1))
+      sleep 2
+    done
+    
+    if [ "$OLLAMA_READY" = true ]; then
+      # Pobierz model llama3 jeśli nie jest dostępny
+      if ! curl -s http://localhost:11434/api/tags | grep -q '"name":"llama3\|"name":"llama3:latest"'; then
+        echo -e "${YELLOW}Pobieranie modelu llama3...${NC}"
+        docker exec -it ollama ollama pull llama3
+        echo -e "${GREEN}Model llama3 pobrany.${NC}"
+      else
+        echo -e "${GREEN}Model llama3 jest już dostępny.${NC}"
+      fi
+    else
+      echo -e "${RED}Ollama nie odpowiada, ale kontynuujemy...${NC}"
+    fi
+  else
+    echo -e "${GREEN}Ollama jest już uruchomione.${NC}"
+    
+    # Sprawdź czy model llama3 jest dostępny
+    if ! curl -s http://localhost:11434/api/tags | grep -q '"name":"llama3\|"name":"llama3:latest"'; then
+      echo -e "${YELLOW}Model llama3 nie jest dostępny. Pobieranie...${NC}"
+      docker exec -it ollama ollama pull llama3
+      echo -e "${GREEN}Model llama3 pobrany.${NC}"
+    else
+      echo -e "${GREEN}Model llama3 jest już dostępny.${NC}"
+    fi
+  fi
+  
+  # 7. Uruchomienie bota Heyken
+  echo -e "${GREEN}Uruchamianie bota Heyken...${NC}"
+  
+  # Sprawdź czy środowisko wirtualne istnieje, jeśli nie, utwórz je
+  if [ ! -d "venv" ]; then
+    echo -e "${YELLOW}Tworzenie środowiska wirtualnego...${NC}"
+    python -m venv venv
+  fi
+  
+  # Aktywuj środowisko wirtualne i zainstaluj zależności
+  echo -e "${YELLOW}Instalacja zależności bota...${NC}"
+  source venv/bin/activate
+  pip install python-dotenv requests
+  
+  # Uruchom bota w tle
+  echo -e "${GREEN}Uruchamianie bota w tle...${NC}"
+  nohup python simple_rocketchat_ollama_bot.py > bot.log 2>&1 &
+  BOT_PID=$!
+  echo $BOT_PID > ./bot.pid
+  echo -e "${GREEN}Bot uruchomiony (PID: $BOT_PID). Logi dostępne w pliku bot.log${NC}"
+  echo -e "${GREEN}Możesz zalogować się do RocketChat (http://localhost:3100) jako: heyken_user / user123${NC}"
+  echo -e "${GREEN}i wysłać wiadomość do bota heyken_bot.${NC}"
 }
 
 # Uruchom główną funkcję z przekazaniem argumentów

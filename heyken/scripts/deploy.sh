@@ -10,7 +10,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Banner
-echo -e "${BLUE}"
+echo_log "\${BLUE}"
 echo "================================================="
 echo "  Heyken - System Autonomiczny                  "
 echo "  Wdrażanie Infrastruktury                       "
@@ -48,7 +48,7 @@ echo -e "${GREEN}Infrastruktura Terraform wdrożona pomyślnie.${NC}"
 echo -e "${YELLOW}Konfiguracja środowiska przez Ansible...${NC}"
 
 cd ansible
-ansible-playbook -i inventory.ini site.yml --extra-vars "active_core_id=${ACTIVE_CORE_ID} gitlab_root_password=${GITLAB_ROOT_PASSWORD} gitlab_api_token=${GITLAB_API_TOKEN}"
+ansible-playbook -i inventory.ini site.yaml --extra-vars "active_core_id=${ACTIVE_CORE_ID} gitlab_root_password=${GITLAB_ROOT_PASSWORD} gitlab_api_token=${GITLAB_API_TOKEN}"
 if [ $? -ne 0 ]; then
     echo -e "${RED}Błąd podczas konfiguracji Ansible!${NC}"
     exit 1
@@ -88,7 +88,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Informacja końcowa
-echo -e "${BLUE}"
+echo_log "\${BLUE}"
 echo "================================================="
 echo "  System wdrożony pomyślnie!                     "
 echo "================================================="

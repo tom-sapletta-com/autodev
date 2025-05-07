@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: heyken-mailhog
+    ports:
+      - "1025:1025" # SMTP server
+      - "8025:8025" # Web UI
+    environment:
+      - MH_STORAGE=maildir
+      - MH_MAILDIR_PATH=/maildir
+    volumes:
+      - ./data:/maildir
+    networks:
+      - heyken_network
+      - system_network
+
+networks:
+  heyken_network:
+    driver: bridge
+  system_network:
+    external: true

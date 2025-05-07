@@ -1,0 +1,55 @@
+version: '3'
+
+services:
+  mongodb:
+    image: mongo:5.0
+    restart: always
+    volumes:
+      - ./data_auto/db:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    command: mongod --oplogSize 128 --replSet rs0
+    networks:
+      - rocketchat
+
+  mongodb-init:
+    image: mongo:5.0
+    restart: on-failure
+    command: >
+      bash -c "sleep 10 && mongosh mongodb/rocketchat --eval \"rs.initiate({ _id: 'rs0', members: [ { _id: 0, host: 'mongodb:27017' } ]})\""
+    depends_on:
+      - mongodb
+    networks:
+      - rocketchat
+
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:7.5.1
+    restart: always
+    volumes:
+      - ./uploads_auto:/app/uploads
+    environment:
+      - ROOT_URL=http://localhost:3100
+      - MONGO_URL=mongodb://mongodb:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://mongodb:27017/local
+      - PORT=3000
+      # Skip setup wizard
+      - OVERWRITE_SETTING_Show_Setup_Wizard=completed
+      # Admin user configuration
+      - ADMIN_USERNAME=${ROCKETCHAT_ADMIN_USERNAME:-admin}
+      - ADMIN_PASS=${ROCKETCHAT_ADMIN_PASSWORD:-dxIsDLnhiqKfDt5J}
+      - ADMIN_EMAIL=${ROCKETCHAT_ADMIN_EMAIL:-admin@example.com}
+      # Disable registration and require admin for new users
+      - OVERWRITE_SETTING_Accounts_RegistrationForm=disabled
+      - OVERWRITE_SETTING_Accounts_ManuallyApproveNewUsers=true
+    depends_on:
+      - mongodb
+    ports:
+      - 3100:3000
+    networks:
+      - rocketchat
+      - system_network
+
+networks:
+  rocketchat:
+    driver: bridge
+  system_network:
+    external: true

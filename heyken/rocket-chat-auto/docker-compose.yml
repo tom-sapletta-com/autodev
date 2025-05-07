@@ -1,0 +1,79 @@
+version: '3'
+
+services:
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:latest
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3100
+      - MONGO_URL=mongodb://mongo:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://mongo:27017/local
+      - OVERWRITE_SETTING_Show_Setup_Wizard=completed
+      - MAIL_URL=smtp://mailhog:1025
+      - OVERWRITE_SETTING_SMTP_Host=mailhog
+      - OVERWRITE_SETTING_SMTP_Port=1025
+      - OVERWRITE_SETTING_From_Email=rocketchat@heyken.local
+      - OVERWRITE_SETTING_Email_Verification=false
+      - OVERWRITE_SETTING_Accounts_EmailVerification=false
+    depends_on:
+      - mongo
+      - mailhog
+    ports:
+      - 3100:3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/info"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - rocket-network
+
+  mongo:
+    image: mongo:5.0
+    restart: unless-stopped
+    volumes:
+      - ./data/db:/data/db
+      - ./data/dump:/dump
+    command: mongod --oplogSize 128 --replSet rs0 --storageEngine=wiredTiger
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - rocket-network
+
+  mongo-init-replica:
+    image: mongo:5.0
+    restart: "no"
+    depends_on:
+      - mongo
+    command: >
+      bash -c "
+        echo 'Waiting for MongoDB to start...' &&
+        sleep 10 &&
+        mongosh mongo/rocketchat --eval \"
+          rs.initiate({
+            _id: 'rs0',
+            members: [ { _id: 0, host: 'mongo:27017' } ]
+          })
+        \"
+      "
+    networks:
+      - rocket-network
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - 1025:1025
+      - 8025:8025
+    networks:
+      - rocket-network
+
+networks:
+  rocket-network:
+    driver: bridge
