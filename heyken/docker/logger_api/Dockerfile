@@ -6,10 +6,11 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     flask \
     requests \
-    docker
+    psycopg2-binary \
+    sqlparse
 
 # Kopiowanie pliku aplikacji
-COPY sandbox_manager.py /app/
+COPY logger_api.py /app/
 
 # Tworzenie katalogu na logi
 RUN mkdir -p /logs
@@ -18,4 +19,4 @@ RUN mkdir -p /logs
 EXPOSE 5000
 
 # Uruchomienie aplikacji
-CMD ["python", "sandbox_manager.py"]
+CMD ["python", "logger_api.py"]
