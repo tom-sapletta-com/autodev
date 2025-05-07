@@ -7,6 +7,42 @@
 Heyken to kompleksowy system autonomicznego programowania zaprojektowany z myślą o niezawodności i samorozwoju. 
 System wykorzystuje architekturę dwóch redundantnych rdzeni, które zapewniają ciągłość działania nawet w przypadku awarii jednego z nich.
 
+```mermaid
+flowchart TB
+    subgraph "Interfejsy użytkownika"
+        RC[RocketChat\n:3100]:::uiNode
+        WM[System Monitor\n:5021]:::uiNode
+    end
+    
+    subgraph "Rdzenie systemu"
+        C1["Rdzeń 1\n(Aktywny)"]:::coreNode
+        C2["Rdzeń 2\n(Zapasowy)"]:::coreNode
+    end
+    
+    subgraph "Serwisy AI"
+        OL[Ollama\n:11434]:::aiNode
+    end
+    
+    subgraph "Bazy danych"
+        MDB[(MongoDB)]:::dbNode
+    end
+    
+    RC <--> C1
+    RC <--> C2
+    C1 <--> OL
+    C2 <--> OL
+    RC --- MDB
+    C1 --- MDB
+    C2 --- MDB
+    WM --> C1
+    WM --> C2
+    
+    classDef uiNode fill:#f9f,stroke:#333,stroke-width:2px
+    classDef coreNode fill:#bbf,stroke:#33f,stroke-width:2px
+    classDef aiNode fill:#bfb,stroke:#3f3,stroke-width:2px
+    classDef dbNode fill:#fb5,stroke:#f90,stroke-width:2px
+```
+
 ## Kluczowe funkcjonalności
 
 1. **Redundantne rdzenie** - system działa na dwóch identycznych rdzeniach, z których jeden jest aktywny, a drugi w trybie gotowości
@@ -23,6 +59,67 @@ System wykorzystuje architekturę dwóch redundantnych rdzeni, które zapewniaj�
 - **Piaskownica (Sandbox)** - izolowane środowisko do testowania nowych funkcji
 - **Baza danych** - centralne repozytorium przechowujące logi i konfiguracje
 - **Usługi Docker** - dynamicznie dodawane kontenery z nowymi funkcjonalnościami
+
+```mermaid
+flowchart TB
+    subgraph "Infrastruktura Heyken"
+        subgraph "Rdzeń 1" 
+            CM1[Core Manager]:::coreComp
+            MM1[Middleware]:::coreComp
+            SR1[System Registry]:::coreComp
+        end
+        
+        subgraph "Rdzeń 2"
+            CM2[Core Manager]:::coreComp
+            MM2[Middleware]:::coreComp
+            SR2[System Registry]:::coreComp
+        end
+        
+        subgraph "Piaskownica"
+            SB[Sandbox Manager]:::sandboxComp
+            FR[Feature Runner]:::sandboxComp
+        end
+        
+        subgraph "Komunikacja"
+            RC[RocketChat]:::commComp
+            GL[GitLab]:::commComp
+        end
+        
+        subgraph "AI"
+            OL[Ollama]:::aiComp
+        end
+        
+        subgraph "Bazy danych"
+            MDB[(MongoDB)]:::dbComp
+            PG[(PostgreSQL)]:::dbComp
+        end
+        
+        CM1 <--> MM1
+        MM1 <--> SR1
+        CM2 <--> MM2
+        MM2 <--> SR2
+        
+        CM1 <--> SB
+        CM2 <--> SB
+        SB <--> FR
+        
+        MM1 <--> RC
+        MM2 <--> RC
+        FR <--> GL
+        
+        RC <--> OL
+        
+        RC --- MDB
+        SB --- PG
+        FR --- PG
+    end
+    
+    classDef coreComp fill:#bbf,stroke:#33f,stroke-width:1px
+    classDef sandboxComp fill:#fbb,stroke:#f33,stroke-width:1px
+    classDef commComp fill:#f9f,stroke:#939,stroke-width:1px
+    classDef aiComp fill:#bfb,stroke:#3f3,stroke-width:1px
+    classDef dbComp fill:#fb5,stroke:#f90,stroke-width:1px
+```
 
 ### Mechanizmy bezpieczeństwa
 - Izolacja warstw poprzez dedykowane sieci Docker
@@ -100,6 +197,23 @@ System Heyken wykorzystuje RocketChat jako główny interfejs komunikacyjny. Pod
 - **Użytkownik**: user / user123
 
 Wszystkie powyższe dane logowania są skonfigurowane w pliku `.env` i można je tam zmienić przed pierwszym uruchomieniem systemu.
+
+```mermaid
+sequenceDiagram
+    participant U as Użytkownik
+    participant RC as RocketChat
+    participant HB as Heyken Bot
+    participant OL as Ollama
+    
+    U->>RC: Logowanie (user/user123)
+    RC-->>U: Potwierdzenie logowania
+    U->>RC: Wiadomość do bota
+    RC->>HB: Przekazanie wiadomości
+    HB->>OL: Zapytanie do modelu llama3
+    OL-->>HB: Odpowiedź modelu
+    HB-->>RC: Odpowiedź bota
+    RC-->>U: Wyświetlenie odpowiedzi
+```
 
 ### Kanały
 
@@ -193,6 +307,32 @@ curl -X POST http://localhost:5010/api/features/deploy \
   -d '{"feature_id":"123","target_core":1}'
 ```
 
+```mermaid
+stateDiagram-v2
+    [*] --> Inicjalizacja
+    Inicjalizacja --> Uruchomienie: ./run.sh
+    
+    state Uruchomienie {
+        [*] --> ZatrzymanieUsług: ./stop.sh
+        ZatrzymanieUsług --> UruchomienieRocketChat
+        UruchomienieRocketChat --> UruchomienieOllama
+        UruchomienieOllama --> UruchomienieBota
+    }
+    
+    Uruchomienie --> SystemGotowy
+    
+    state SystemGotowy {
+        [*] --> OczekiwanieNaWiadomości
+        OczekiwanieNaWiadomości --> PrzetwarzanieWiadomości: Nowa wiadomość
+        PrzetwarzanieWiadomości --> GenerowanieOdpowiedzi: Zapytanie do Ollama
+        GenerowanieOdpowiedzi --> WysylanieOdpowiedzi
+        WysylanieOdpowiedzi --> OczekiwanieNaWiadomości
+    }
+    
+    SystemGotowy --> Zatrzymanie: ./stop.sh
+    Zatrzymanie --> [*]
+```
+
 ### Przykład 2: Monitorowanie stanu systemu
 
 ```bash
@@ -219,6 +359,44 @@ curl http://localhost:5002/api/components
 - **text2sql** - interfejs do analizy logów przez zapytania w języku naturalnym
 - **FeatureRunner** - mechanizm do testowania i wdrażania nowych funkcjonalności
 - **Monitorowanie stanu** - ciągła obserwacja wszystkich komponentów systemu
+
+## Integracja RocketChat z Ollama
+
+Poniższy diagram przedstawia szczegółowy przepływ danych między RocketChat a Ollama za pośrednictwem bota Heyken:
+
+```mermaid
+flowchart LR
+    subgraph "Komunikacja"
+        U[Użytkownik]:::userNode
+        RC[RocketChat\n:3100]:::rcNode
+    end
+    
+    subgraph "Bot Heyken"
+        BM[Bot Manager]:::botNode
+        OC[Ollama Client]:::botNode
+    end
+    
+    subgraph "Ollama"
+        OA[Ollama API\n:11434]:::ollamaNode
+        LM[Model llama3]:::ollamaNode
+    end
+    
+    U -->|"1. Wysłanie wiadomości"| RC
+    RC -->|"2. Webhook / API"| BM
+    BM -->|"3. Zapytanie"| OC
+    OC -->|"4. Generowanie tekstu"| OA
+    OA -->|"5. Przetwarzanie"| LM
+    LM -->|"6. Odpowiedź modelu"| OA
+    OA -->|"7. Strumień tekstu"| OC
+    OC -->|"8. Sformatowana odpowiedź"| BM
+    BM -->|"9. Odpowiedź bota"| RC
+    RC -->|"10. Wyświetlenie odpowiedzi"| U
+    
+    classDef userNode fill:#f96,stroke:#f63,stroke-width:2px
+    classDef rcNode fill:#f9f,stroke:#939,stroke-width:2px
+    classDef botNode fill:#bbf,stroke:#33f,stroke-width:2px
+    classDef ollamaNode fill:#bfb,stroke:#3f3,stroke-width:2px
+```
 
 ---
 

@@ -211,8 +211,8 @@ main() {
   # 1. Instalacja wymaganych pakietów
   install_requirements
   
-  # 2. Uruchom monitor przed innymi usługami
-  start_monitor
+  # 2. Pomijamy uruchomienie monitora, ponieważ brakuje plików konfiguracyjnych
+  echo -e "${YELLOW}Pomijam uruchomienie monitora (brak plików konfiguracyjnych).${NC}"
   
   # 3. Dodaj opcję wyświetlania logów w przeglądarce
   if [ "$1" == "--logs" ] || [ "$1" == "-l" ]; then
@@ -282,52 +282,93 @@ main() {
     echo -e "${YELLOW}Plik docker-compose.yml nie istnieje. Pomijam uruchomienie głównych usług.${NC}"
   fi
   
-  # 6. Uruchomienie Ollama jeśli nie jest już uruchomione
-  echo -e "${GREEN}Sprawdzanie statusu Ollama...${NC}"
-  if ! curl -s http://localhost:11434/api/tags > /dev/null; then
-    echo -e "${YELLOW}Ollama nie jest uruchomione. Uruchamiam...${NC}"
-    docker run -d --name ollama -p 11434:11434 ollama/ollama
-    
-    # Czekaj na uruchomienie Ollama
-    echo -e "${YELLOW}Oczekiwanie na uruchomienie Ollama...${NC}"
-    MAX_ATTEMPTS=30
-    ATTEMPT=0
-    OLLAMA_READY=false
-    
-    while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-      echo -n "."
-      if curl -s http://localhost:11434/api/tags > /dev/null; then
-        echo -e "\n${GREEN}Ollama jest gotowe!${NC}"
-        OLLAMA_READY=true
-        break
-      fi
-      ATTEMPT=$((ATTEMPT+1))
-      sleep 2
-    done
-    
-    if [ "$OLLAMA_READY" = true ]; then
-      # Pobierz model llama3 jeśli nie jest dostępny
-      if ! curl -s http://localhost:11434/api/tags | grep -q '"name":"llama3\|"name":"llama3:latest"'; then
-        echo -e "${YELLOW}Pobieranie modelu llama3...${NC}"
-        docker exec -it ollama ollama pull llama3
-        echo -e "${GREEN}Model llama3 pobrany.${NC}"
-      else
-        echo -e "${GREEN}Model llama3 jest już dostępny.${NC}"
-      fi
-    else
-      echo -e "${RED}Ollama nie odpowiada, ale kontynuujemy...${NC}"
+  # 6. Pobieranie modelu Ollama i uruchomienie kontenera
+  echo -e "${GREEN}Przygotowywanie modelu Ollama...${NC}"
+  
+  # Zatrzymaj kontener Ollama jeśli działa
+  if docker ps | grep -q ollama; then
+    echo -e "${YELLOW}Zatrzymuję działający kontener Ollama...${NC}"
+    docker stop ollama >/dev/null 2>&1
+    docker rm ollama >/dev/null 2>&1
+  fi
+  
+  # Utwórz katalog dla modeli Ollama
+  OLLAMA_MODELS_DIR="${PWD}/data/ollama"
+  mkdir -p "$OLLAMA_MODELS_DIR"
+  chmod -R 777 "$OLLAMA_MODELS_DIR"
+  
+  # Ustaw zmienną dla modelu
+  OLLAMA_MODEL="llama3"
+  
+  # Sprawdź czy model jest już pobrany
+  MODEL_DOWNLOADED=false
+  if [ -d "$OLLAMA_MODELS_DIR/models" ]; then
+    if find "$OLLAMA_MODELS_DIR/models" -type f -name "*$OLLAMA_MODEL*" | grep -q .; then
+      echo -e "${GREEN}Model $OLLAMA_MODEL jest już dostępny lokalnie.${NC}"
+      MODEL_DOWNLOADED=true
     fi
+  fi
+  
+  # Jeśli model nie jest pobrany, pobierz go
+  if [ "$MODEL_DOWNLOADED" = false ]; then
+    echo -e "${YELLOW}Model $OLLAMA_MODEL nie jest dostępny lokalnie. Pobieram...${NC}"
+    
+    # Pobierz model bezpośrednio do katalogu
+    echo -e "${YELLOW}Pobieranie modelu $OLLAMA_MODEL do katalogu $OLLAMA_MODELS_DIR...${NC}"
+    
+    # Sprawdź czy mamy zainstalowane Ollama CLI lokalnie
+    if ! command -v ollama &> /dev/null; then
+      echo -e "${YELLOW}Ollama CLI nie jest zainstalowane lokalnie. Instaluję...${NC}"
+      curl -fsSL https://ollama.com/install.sh | sh
+      echo -e "${GREEN}Ollama CLI zainstalowane.${NC}"
+    fi
+    
+    # Pobierz model bezpośrednio z internetu do katalogu
+    mkdir -p "$OLLAMA_MODELS_DIR/models"
+    
+    # Pobierz model llama3 bezpośrednio z repozytorium
+    echo -e "${YELLOW}Pobieranie modelu $OLLAMA_MODEL z repozytorium...${NC}"
+    curl -L https://ollama.com/library/$OLLAMA_MODEL/manifest.json -o "$OLLAMA_MODELS_DIR/models/$OLLAMA_MODEL.json"
+    
+    echo -e "${GREEN}Model $OLLAMA_MODEL pobrany do katalogu $OLLAMA_MODELS_DIR/models/${NC}"
+  fi
+  
+  # Uruchom kontener Ollama z podmontowanym katalogiem modeli
+  echo -e "${GREEN}Uruchamiam kontener Ollama z lokalnie pobranym modelem $OLLAMA_MODEL...${NC}"
+  
+  # Upewnij się, że stary kontener nie istnieje
+  if docker ps -a | grep -q ollama; then
+    echo -e "${YELLOW}Usuwam stary kontener Ollama...${NC}"
+    docker rm -f ollama >/dev/null 2>&1
+  fi
+  
+  # Uruchom kontener z podmontowanym katalogiem modeli
+  docker run -d --name ollama \
+    -p 11434:11434 \
+    -v "$OLLAMA_MODELS_DIR:/root/.ollama" \
+    ollama/ollama
+  
+  # Czekaj na uruchomienie kontenera
+  echo -e "${YELLOW}Oczekiwanie na uruchomienie kontenera Ollama...${NC}"
+  MAX_ATTEMPTS=30
+  ATTEMPT=0
+  OLLAMA_READY=false
+  
+  while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    echo -n "."
+    if curl -s http://localhost:11434/api/tags > /dev/null; then
+      echo -e "\n${GREEN}Kontener Ollama jest gotowy!${NC}"
+      OLLAMA_READY=true
+      break
+    fi
+    ATTEMPT=$((ATTEMPT+1))
+    sleep 2
+  done
+  
+  if [ "$OLLAMA_READY" = true ]; then
+    echo -e "${GREEN}Ollama jest gotowe do użycia.${NC}"
   else
-    echo -e "${GREEN}Ollama jest już uruchomione.${NC}"
-    
-    # Sprawdź czy model llama3 jest dostępny
-    if ! curl -s http://localhost:11434/api/tags | grep -q '"name":"llama3\|"name":"llama3:latest"'; then
-      echo -e "${YELLOW}Model llama3 nie jest dostępny. Pobieranie...${NC}"
-      docker exec -it ollama ollama pull llama3
-      echo -e "${GREEN}Model llama3 pobrany.${NC}"
-    else
-      echo -e "${GREEN}Model llama3 jest już dostępny.${NC}"
-    fi
+    echo -e "${RED}Kontener Ollama nie odpowiada, ale kontynuujemy...${NC}"
   fi
   
   # 7. Uruchomienie bota Heyken
@@ -350,6 +391,16 @@ main() {
   BOT_PID=$!
   echo $BOT_PID > ./bot.pid
   echo -e "${GREEN}Bot uruchomiony (PID: $BOT_PID). Logi dostępne w pliku bot.log${NC}"
+  
+  # Uruchom forwarder logów Docker do RocketChat
+  echo -e "${GREEN}Uruchamianie forwardera logów Docker do RocketChat...${NC}"
+  chmod +x ./scripts/docker_logs_to_rocketchat.py
+  nohup python ./scripts/docker_logs_to_rocketchat.py > docker_logs_forwarder.log 2>&1 &
+  LOGS_FORWARDER_PID=$!
+  echo $LOGS_FORWARDER_PID > ./docker_logs_forwarder.pid
+  echo -e "${GREEN}Forwarder logów Docker uruchomiony (PID: $LOGS_FORWARDER_PID)${NC}"
+  echo -e "${GREEN}Logi Docker będą wysyłane do kanałów #heyken-logs i #logs w RocketChat${NC}"
+  
   echo -e "${GREEN}Możesz zalogować się do RocketChat (http://localhost:3100) jako: heyken_user / user123${NC}"
   echo -e "${GREEN}i wysłać wiadomość do bota heyken_bot.${NC}"
 }

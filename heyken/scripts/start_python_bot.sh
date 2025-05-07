@@ -102,15 +102,72 @@ else
 fi
 
 # Sprawdzenie, czy RocketChat jest dostępny
-ROCKETCHAT_URL=$(grep -E "^ROCKETCHAT_URL=" "$ENV_FILE" | cut -d= -f2)
+ROCKETCHAT_URL=$(grep -E "^ROCKETCHAT_URL=" "$ENV_FILE" | cut -d= -f2 | tr -d '"')
 if [ -z "$ROCKETCHAT_URL" ]; then
     ROCKETCHAT_URL="http://localhost:3100"
 fi
 
+ROCKETCHAT_BOT_USERNAME=$(grep -E "^ROCKETCHAT_BOT_USERNAME=" "$ENV_FILE" | cut -d= -f2 | tr -d '"')
+ROCKETCHAT_BOT_PASSWORD=$(grep -E "^ROCKETCHAT_BOT_PASSWORD=" "$ENV_FILE" | cut -d= -f2 | tr -d '"')
+
+if [ -z "$ROCKETCHAT_BOT_USERNAME" ]; then
+    ROCKETCHAT_BOT_USERNAME="heyken_bot"
+fi
+
+if [ -z "$ROCKETCHAT_BOT_PASSWORD" ]; then
+    ROCKETCHAT_BOT_PASSWORD="heyken123"
+fi
+
 echo "Sprawdzanie połączenia z RocketChat ($ROCKETCHAT_URL)..."
-if ! curl -s "$ROCKETCHAT_URL/api/info" &> /dev/null; then
-    echo "Ostrzeżenie: Nie można połączyć się z RocketChat pod adresem $ROCKETCHAT_URL"
+ROCKETCHAT_INFO=$(curl -s "$ROCKETCHAT_URL/api/info")
+if [ $? -ne 0 ] || [ -z "$ROCKETCHAT_INFO" ]; then
+    echo "BŁĄD: Nie można połączyć się z RocketChat pod adresem $ROCKETCHAT_URL"
     echo "Upewnij się, że RocketChat jest uruchomiony przed kontynuowaniem"
+    echo "Naciśnij Enter, aby kontynuować mimo to lub Ctrl+C, aby anulować..."
+    read
+else
+    echo "Połączenie z RocketChat nawiązane."
+    echo "Sprawdzanie konta bota ($ROCKETCHAT_BOT_USERNAME)..."
+    
+    # Próba logowania jako bot
+    BOT_LOGIN_RESPONSE=$(curl -s -X POST "$ROCKETCHAT_URL/api/v1/login" \
+        -H "Content-Type: application/json" \
+        -d '{"user":"'"$ROCKETCHAT_BOT_USERNAME"'","password":"'"$ROCKETCHAT_BOT_PASSWORD"'"}' 2>&1)
+    
+    if echo "$BOT_LOGIN_RESPONSE" | grep -q "success\":true"; then
+        echo "Logowanie jako bot powiodło się. Konto bota jest poprawnie skonfigurowane."
+    else
+        echo "BŁĄD: Nie można zalogować się jako bot ($ROCKETCHAT_BOT_USERNAME)."
+        echo "Odpowiedź: $BOT_LOGIN_RESPONSE"
+        echo "Konto bota może nie istnieć lub hasło może być nieprawidłowe."
+        echo "Czy chcesz uruchomić skrypt konfiguracyjny RocketChat, aby utworzyć konto bota? (t/n)"
+        read -r setup_rocketchat
+        
+        if [[ "$setup_rocketchat" =~ ^[Tt]$ ]]; then
+            echo "Uruchamianie skryptu konfiguracyjnego RocketChat..."
+            "$SCRIPT_DIR/setup_rocketchat.sh"
+            
+            # Ponowna próba logowania
+            echo "Ponowna próba logowania jako bot..."
+            BOT_LOGIN_RESPONSE=$(curl -s -X POST "$ROCKETCHAT_URL/api/v1/login" \
+                -H "Content-Type: application/json" \
+                -d '{"user":"'"$ROCKETCHAT_BOT_USERNAME"'","password":"'"$ROCKETCHAT_BOT_PASSWORD"'"}' 2>&1)
+            
+            if echo "$BOT_LOGIN_RESPONSE" | grep -q "success\":true"; then
+                echo "Logowanie jako bot powiodło się po konfiguracji. Konto bota jest poprawnie skonfigurowane."
+            else
+                echo "BŁĄD: Nadal nie można zalogować się jako bot po konfiguracji."
+                echo "Odpowiedź: $BOT_LOGIN_RESPONSE"
+                echo "Bot zostanie uruchomiony, ale może nie działać poprawnie."
+                echo "Naciśnij Enter, aby kontynuować mimo to lub Ctrl+C, aby anulować..."
+                read
+            fi
+        else
+            echo "Bot zostanie uruchomiony, ale może nie działać poprawnie bez konta bota."
+            echo "Naciśnij Enter, aby kontynuować mimo to lub Ctrl+C, aby anulować..."
+            read
+        fi
+    fi
 fi
 
 # Uruchomienie bota
