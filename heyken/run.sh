@@ -1,14 +1,132 @@
 #!/bin/bash
 
+# ===== Heyken - System uruchamiania =====
+# Skrypt do uruchamiania systemu Heyken, który integruje RocketChat z Ollama
+
 # Kolory do komunikatów
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Ustaw bazowy katalog projektu
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_DIR" || { echo -e "${RED}Nie można przejść do katalogu projektu!${NC}"; exit 1; }
+
+# Funkcja do logowania
+log() {
+  local level=$1
+  local message=$2
+  local color=$NC
+  
+  case $level in
+    "INFO") color=$GREEN ;;
+    "WARN") color=$YELLOW ;;
+    "ERROR") color=$RED ;;
+    "DEBUG") color=$BLUE ;;
+  esac
+  
+  echo -e "${color}[$level] $message${NC}"
+}
+
 # Ładowanie zmiennych środowiskowych z pliku .env
-if [ -f .env ]; then
-  export $(cat .env | grep -v '^#' | xargs)
+if [ ! -f .env ]; then
+  log "WARN" "Plik .env nie istnieje. Tworzę domyślny plik na podstawie .env.example..."
+  if [ -f .env.example ]; then
+    cp .env.example .env
+    log "INFO" "Utworzono plik .env z domyślnymi ustawieniami."
+  else
+    log "WARN" "Plik .env.example nie istnieje. Tworzę podstawowy plik .env..."
+    cat > .env <<EOL
+# Heyken Configuration
+ROCKETCHAT_ADMIN_USERNAME=admin
+ROCKETCHAT_ADMIN_PASSWORD=dxIsDLnhiqKfDt5J
+ROCKETCHAT_ADMIN_EMAIL=admin@example.com
+ROCKETCHAT_PORT=3100
+OLLAMA_MODEL=llama3
+OLLAMA_PORT=11434
+MONITOR_PORT=8080
+EOL
+  fi
+fi
+
+# Załaduj zmienne środowiskowe
+set -o allexport
+source .env
+set +o allexport
+
+# Ustaw domyślne wartości dla zmiennych, jeśli nie są zdefiniowane
+ROCKETCHAT_PORT=${ROCKETCHAT_PORT:-3100}
+OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
+OLLAMA_PORT=${OLLAMA_PORT:-11434}
+MONITOR_PORT=${MONITOR_PORT:-8080}
+DATA_DIR=${DATA_DIR:-"$PROJECT_DIR/data"}
+LOGS_DIR=${LOGS_DIR:-"$PROJECT_DIR/logs"}
+
+# Utwórz potrzebne katalogi
+mkdir -p "$DATA_DIR" "$LOGS_DIR" "$DATA_DIR/ollama" "$LOGS_DIR/containers"
+
+# === Sprawdzenie i konfiguracja wymaganych zależności ===
+
+# Uwaga: Usunięto sprawdzanie sieci Docker 'system_network', ponieważ nie jest już wymagana
+
+# 2. Sprawdzenie i instalacja Terraform jeśli nie istnieje
+echo -e "${YELLOW}Sprawdzanie instalacji Terraform...${NC}"
+if command -v terraform &>/dev/null; then
+  echo -e "${GREEN}Terraform już zainstalowany.${NC}"
+else
+  echo -e "${YELLOW}Instalacja Terraform z binarki...${NC}"
+  
+  # Określ wersję i architekturę
+  T_VERSION="1.8.5"
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64) ARCH=amd64 ;;
+    aarch64) ARCH=arm64 ;;
+    *) echo -e "${RED}Nieobsługiwana architektura: $ARCH${NC}"; exit 1 ;;
+  esac
+  
+  # Pobierz i zainstaluj Terraform
+  TMP_DIR=$(mktemp -d)
+  cd "$TMP_DIR" || exit 1
+  
+  echo -e "${YELLOW}Pobieranie Terraform v${T_VERSION}...${NC}"
+  curl -s -o terraform.zip "https://releases.hashicorp.com/terraform/${T_VERSION}/terraform_${T_VERSION}_linux_${ARCH}.zip" || {
+    echo -e "${RED}Błąd: Nie można pobrać Terraform.${NC}"
+    cd - > /dev/null || exit 1
+    rm -rf "$TMP_DIR"
+    exit 1
+  }
+  
+  echo -e "${YELLOW}Rozpakowywanie...${NC}"
+  unzip -q terraform.zip || {
+    echo -e "${RED}Błąd: Nie można rozpakować Terraform.${NC}"
+    cd - > /dev/null || exit 1
+    rm -rf "$TMP_DIR"
+    exit 1
+  }
+  
+  echo -e "${YELLOW}Instalacja Terraform...${NC}"
+  echo -e "${YELLOW}Zostaniesz poproszony o podanie hasła sudo.${NC}"
+  sudo mv terraform /usr/local/bin/ || {
+    echo -e "${RED}Błąd: Nie można zainstalować Terraform.${NC}"
+    echo -e "${YELLOW}Wykonaj ręcznie: sudo mv $TMP_DIR/terraform /usr/local/bin/${NC}"
+    cd - > /dev/null || exit 1
+    exit 1
+  }
+  
+  # Sprzątanie
+  cd - > /dev/null || exit 1
+  rm -rf "$TMP_DIR"
+  
+  # Sprawdź instalację
+  if command -v terraform &>/dev/null; then
+    echo -e "${GREEN}Terraform zainstalowany pomyślnie.${NC}"
+  else
+    echo -e "${RED}Błąd: Nie można zainstalować Terraform.${NC}"
+    exit 1
+  fi
 fi
 
 # Funkcja do otwierania przeglądarki

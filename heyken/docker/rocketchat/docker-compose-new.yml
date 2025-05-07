@@ -1,14 +1,25 @@
-version: '3'
+version: '3.8'
 
 services:
   mongodb:
     image: mongo:5.0
     restart: always
     volumes:
-      - ./data_new/db:/data/db
+      - ${DATA_DIR:-../../../data}/mongodb:/data/db
     command: mongod --oplogSize 128 --replSet rs0
     networks:
       - rocketchat
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   mongodb-init:
     image: mongo:5.0
@@ -16,7 +27,8 @@ services:
     command: >
       bash -c "sleep 10 && mongosh mongodb/rocketchat --eval \"rs.initiate({ _id: 'rs0', members: [ { _id: 0, host: 'mongodb:27017' } ]})\""
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - rocketchat
 
@@ -24,9 +36,9 @@ services:
     build: .
     restart: always
     volumes:
-      - ./uploads:/app/uploads
+      - ${DATA_DIR:-../../../data}/uploads:/app/uploads
     environment:
-      - ROOT_URL=http://localhost:3100
+      - ROOT_URL=http://localhost:${ROCKETCHAT_PORT:-3100}
       - MONGO_URL=mongodb://mongodb:27017/rocketchat
       - MONGO_OPLOG_URL=mongodb://mongodb:27017/local
       - PORT=3000
@@ -40,15 +52,25 @@ services:
       - OVERWRITE_SETTING_Accounts_RegistrationForm=disabled
       - OVERWRITE_SETTING_Accounts_ManuallyApproveNewUsers=true
     depends_on:
-      - mongodb
+      mongodb-init:
+        condition: service_completed_successfully
     ports:
-      - 3100:3000
+      - ${ROCKETCHAT_PORT:-3100}:3000
     networks:
       - rocketchat
-      - system_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/info"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   rocketchat:
     driver: bridge
-  system_network:
-    external: true
+    name: rocketchat_network

@@ -1,5 +1,150 @@
 # Heyken
 
+Heyken is an integrated system that combines RocketChat with Ollama AI models to provide an intelligent chat platform. This project sets up all the necessary components to run a complete AI-powered chat system.
+
+## Components
+
+- **RocketChat**: Open-source team communication platform
+- **Ollama**: Local AI model server for running large language models
+- **MongoDB**: Database for RocketChat
+- **Docker**: Containerization for all services
+
+## Improvements
+
+The project has been improved with the following enhancements:
+
+1. **Environment Variable Management**:
+   - Added `.env.example` template file
+   - Automatic creation of `.env` file if not present
+   - Consistent environment variable usage across scripts
+
+2. **Docker Configuration**:
+   - Added healthchecks for services
+   - Improved volume mounting with configurable paths
+   - Added log rotation for containers
+   - Removed dependency on external Docker network
+
+3. **Script Enhancements**:
+   - Centralized logging system
+   - Better error handling and reporting
+   - Removed hardcoded paths for better portability
+   - Added separate setup script for Ollama
+
+4. **Project Structure**:
+   - Organized data storage in configurable locations
+   - Improved script organization
+   - Better separation of concerns between components
+
+## Installation
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Bash shell
+- curl
+
+### Quick Start
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/tom-sapletta-com/evodev.git
+   cd evodev/heyken
+   ```
+
+2. Run the setup script:
+   ```bash
+   ./run.sh
+   ```
+
+   This will:
+   - Create a `.env` file if it doesn't exist
+   - Install required dependencies
+   - Start RocketChat and MongoDB
+   - Set up and start Ollama with the specified model
+
+## Configuration
+
+You can customize the installation by editing the `.env` file. The following variables are available:
+
+```
+# RocketChat Configuration
+ROCKETCHAT_ADMIN_USERNAME=admin
+ROCKETCHAT_ADMIN_PASSWORD=dxIsDLnhiqKfDt5J
+ROCKETCHAT_ADMIN_EMAIL=admin@example.com
+ROCKETCHAT_PORT=3100
+
+# Ollama Configuration
+OLLAMA_MODEL=llama3
+OLLAMA_PORT=11434
+
+# Monitor Configuration
+MONITOR_PORT=8080
+
+# Project Paths
+DATA_DIR=/path/to/data
+LOGS_DIR=/path/to/logs
+```
+
+## Usage
+
+### Starting the System
+
+```bash
+./run.sh
+```
+
+### Stopping the System
+
+```bash
+./stop.sh
+```
+
+### Setting Up Ollama Separately
+
+```bash
+./scripts/setup_ollama.sh
+```
+
+## Accessing Services
+
+- **RocketChat**: http://localhost:3100 (or the port specified in `.env`)
+- **Ollama API**: http://localhost:11434 (or the port specified in `.env`)
+- **Monitor**: http://localhost:8080 (if configured)
+
+## Default Credentials
+
+- **RocketChat Admin**:
+  - Username: admin (or as specified in `.env`)
+  - Password: dxIsDLnhiqKfDt5J (or as specified in `.env`)
+
+## Troubleshooting
+
+### Logs
+
+Logs are stored in the following locations:
+
+- **Container Logs**: `$LOGS_DIR/containers/`
+- **Ollama Setup Logs**: `$LOGS_DIR/ollama/setup.log`
+- **Monitor Logs**: `monitor.log`
+
+### Common Issues
+
+1. **Docker Permission Issues**:
+   - Add your user to the docker group: `sudo usermod -aG docker $USER`
+   - Log out and log back in for changes to take effect
+
+2. **Port Conflicts**:
+   - Change the ports in the `.env` file if there are conflicts
+
+3. **Ollama Model Download Failures**:
+   - Check internet connection
+   - Try a different model in the `.env` file
+   - Check disk space
+
+## License
+
+See the LICENSE file for details.
+
 ## System autonomicznego programowania z redundantnymi rdzeniami
 
 **[heyken.io](https://heyken.io) | [hey-ken.com](https://hey-ken.com)**
