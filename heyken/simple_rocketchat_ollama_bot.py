@@ -856,6 +856,34 @@ class SimpleBot:
                 logger.error(f"Błąd podczas wysyłania wiadomości o błędzie: {str(e2)}")
                 logger.error(traceback.format_exc())
                 
+    def _update_status_thread(self, task_preview, end_time):
+        """
+        Wątek aktualizujący status co 5 sekund podczas przetwarzania zapytania.
+        
+        Args:
+            task_preview: Podgląd zadania (pierwsze 50 znaków)
+            end_time: Szacowany czas zakończenia (timestamp)
+        """
+        try:
+            # Dopóki trwa przetwarzanie, aktualizuj status co 5 sekund
+            while self.processing and time.time() < end_time:
+                # Oblicz pozostały czas
+                remaining_time = int(end_time - time.time())
+                if remaining_time <= 0:
+                    remaining_time = 1  # Minimum 1 sekunda
+                
+                # Aktualizuj status
+                status_message = f"Jeszcze [{remaining_time}]s zajmie mi: {task_preview}"
+                self.rocketchat.set_status_busy(status_message)
+                logger.info(f"Zaktualizowano status: {status_message}")
+                
+                # Poczekaj 5 sekund przed następną aktualizacją
+                time.sleep(5)
+        except Exception as e:
+            logger.error(f"Błąd w wątku aktualizacji statusu: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+    
     def _estimate_response_time(self, text_length):
         """
         Szacuje czas odpowiedzi na podstawie długości tekstu i aktualnego obciążenia.
