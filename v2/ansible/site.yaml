@@ -1,0 +1,30 @@
+# Główny playbook Ansible dla systemu z dwoma rdzeniami
+
+- name: Wspólna konfiguracja
+  hosts: all
+  roles:
+    - common
+
+- name: Konfiguracja rdzenia 1
+  hosts: core1
+  roles:
+    - role: core
+      vars:
+        core_id: 1
+
+- name: Konfiguracja rdzenia 2
+  hosts: core2
+  roles:
+    - role: core
+      vars:
+        core_id: 2
+
+- name: Konfiguracja piaskownicy
+  hosts: sandbox
+  roles:
+    - sandbox
+
+- name: Konfiguracja bazy danych
+  hosts: database
+  roles:
+    - database

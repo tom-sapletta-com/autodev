@@ -1,0 +1,139 @@
+# .gitlab-ci.yml - Szablon dla automatyzacji CI/CD w komponentach systemu
+
+stages:
+  - validate
+  - test
+  - build
+  - sandbox_test
+  - deploy
+  - verify
+
+variables:
+  COMPONENT_NAME: ${CI_PROJECT_NAME}
+  COMPONENT_VERSION: "${CI_COMMIT_TAG:-${CI_COMMIT_SHORT_SHA}}"
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_DRIVER: overlay2
+
+# Walidacja kodu
+validate:
+  stage: validate
+  image: python:3.9-slim
+  script:
+    - pip install flake8 mypy
+    - flake8 --exclude=venv --max-line-length=100 .
+    - mypy --ignore-missing-imports .
+  allow_failure: true
+
+# Testy jednostkowe
+test:
+  stage: test
+  image: python:3.9-slim
+  script:
+    - pip install -r requirements.txt
+    - pip install pytest pytest-cov
+    - pytest --cov=./ --cov-report=xml:coverage.xml
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+# Budowanie obrazu Docker
+build:
+  stage: build
+  image: docker:20.10
+  services:
+    - docker:20.10-dind
+  script:
+    - echo "Building Docker image ${COMPONENT_NAME}:${COMPONENT_VERSION}"
+    - docker build -t ${COMPONENT_NAME}:${COMPONENT_VERSION} .
+    - docker save ${COMPONENT_NAME}:${COMPONENT_VERSION} > ${COMPONENT_NAME}.tar
+  artifacts:
+    paths:
+      - ${COMPONENT_NAME}.tar
+    expire_in: 1 day
+
+# Generowanie konfiguracji Docker Compose dla piaskownicy
+sandbox_config:
+  stage: sandbox_test
+  image: alpine:latest
+  script:
+    - echo "Generating Docker Compose configuration for sandbox testing"
+    - |
+      cat > docker-compose.yml << EOF
+      version: '3.8'
+      services:
+        ${COMPONENT_NAME}:
+          image: ${COMPONENT_NAME}:${COMPONENT_VERSION}
+          # Dodatkowe konfiguracje specyficzne dla komponentu
+      EOF
+    - cat docker-compose.yml
+  artifacts:
+    paths:
+      - docker-compose.yml
+    expire_in: 1 day
+
+# Testowanie w piaskownicy
+sandbox_test:
+  stage: sandbox_test
+  image: alpine:latest
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - echo "Submitting feature for sandbox testing"
+    - |
+      cat > feature.json << EOF
+      {
+        "feature_config": {
+          "name": "${COMPONENT_NAME}",
+          "version": "${COMPONENT_VERSION}",
+          "component_type": "service",
+          "docker_compose": $(cat docker-compose.yml)
+        }
+      }
+      EOF
+    - cat feature.json
+    - >
+      apk add --no-cache curl && 
+      curl -X POST http://feature_runner:5000/test 
+      -H "Content-Type: application/json" 
+      -d @feature.json
+  dependencies:
+    - sandbox_config
+  allow_failure: true
+  when: manual
+
+# Wdrożenie do aktywnego rdzenia
+deploy:
+  stage: deploy
+  image: alpine:latest
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - echo "Deploying feature to active core"
+    - >
+      apk add --no-cache curl && 
+      curl -X POST http://middleware_core${ACTIVE_CORE_ID}:5000/feature/deploy 
+      -H "Content-Type: application/json" 
+      -d "{\"feature\": {\"name\": \"${COMPONENT_NAME}\", \"version\": \"${COMPONENT_VERSION}\"}}"
+  only:
+    - tags
+    - master
+  when: manual
+
+# Weryfikacja wdrożenia
+verify:
+  stage: verify
+  image: alpine:latest
+  script:
+    - echo "Verifying deployment status"
+    - >
+      apk add --no-cache curl && 
+      curl -s http://middleware_core${ACTIVE_CORE_ID}:5000/components?name=${COMPONENT_NAME} | 
+      grep -q "\"version\":\"${COMPONENT_VERSION}\""
+  only:
+    - tags
+    - master
+  dependencies:
+    - deploy
+  when: manual
