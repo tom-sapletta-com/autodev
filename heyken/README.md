@@ -181,11 +181,6 @@ flowchart TB
     C2 --- MDB
     WM --> C1
     WM --> C2
-    
-    classDef uiNode fill:#f9f,stroke:#333,stroke-width:2px
-    classDef coreNode fill:#bbf,stroke:#33f,stroke-width:2px
-    classDef aiNode fill:#bfb,stroke:#3f3,stroke-width:2px
-    classDef dbNode fill:#fb5,stroke:#f90,stroke-width:2px
 ```
 
 ## Kluczowe funkcjonalności
@@ -259,11 +254,7 @@ flowchart TB
         FR --- PG
     end
     
-    classDef coreComp fill:#bbf,stroke:#33f,stroke-width:1px
-    classDef sandboxComp fill:#fbb,stroke:#f33,stroke-width:1px
-    classDef commComp fill:#f9f,stroke:#939,stroke-width:1px
-    classDef aiComp fill:#bfb,stroke:#3f3,stroke-width:1px
-    classDef dbComp fill:#fb5,stroke:#f90,stroke-width:1px
+    
 ```
 
 ### Mechanizmy bezpieczeństwa
