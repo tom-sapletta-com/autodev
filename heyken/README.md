@@ -155,17 +155,17 @@ System wykorzystuje architekturę dwóch redundantnych rdzeni, które zapewniaj�
 ```mermaid
 flowchart TB
     subgraph "Interfejsy użytkownika"
-        RC[RocketChat\n:3100]:::uiNode
-        WM[System Monitor\n:5021]:::uiNode
+        RC[RocketChat:3100]:::uiNode
+        WM[System Monitor:5021]:::uiNode
     end
     
     subgraph "Rdzenie systemu"
-        C1["Rdzeń 1\n(Aktywny)"]:::coreNode
-        C2["Rdzeń 2\n(Zapasowy)"]:::coreNode
+        C1["Rdzeń 1(Aktywny)"]:::coreNode
+        C2["Rdzeń 2(Zapasowy)"]:::coreNode
     end
     
     subgraph "Serwisy AI"
-        OL[Ollama\n:11434]:::aiNode
+        OL[Ollama:11434]:::aiNode
     end
     
     subgraph "Bazy danych"
