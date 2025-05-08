@@ -253,8 +253,6 @@ flowchart TB
         SB --- PG
         FR --- PG
     end
-    
-    
 ```
 
 ### Mechanizmy bezpieczeństwa
